@@ -43,7 +43,7 @@ This repository provides simulation and teleoperation tools for controlling a ro
   Make a workspace and create a directory 'src' where all the packages will be stored, clone this repo to get the packages and then build the catkin workspace.
   ```
   cd ~/robo_arm/src/
-  git clone https://github.com/bhumii-ka/robo_arm.git
+  git clone https://github.com/Team-Deimos-IIT-Mandi/Robotic_Arm.git
   cd ~/robo_arm && catkin_make
   ```
   Source your workspace in .bashrc file by running the following command so that you don't have to source it in every terminal
