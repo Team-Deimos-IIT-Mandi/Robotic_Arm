@@ -1,0 +1,43 @@
+controller_list:
+ - name: end_effector_controller
+   action_ns: follow_joint_trajectory
+   default: True
+   type: FollowJointTrajectory
+   joints:
+    - joint_4
+   gains:
+    joint_4:
+      p: 100
+      d: 1
+      i: 1
+      i_clamp: 1
+ - name: plan_controller
+   action_ns: follow_joint_trajectory
+   default: True
+   type: FollowJointTrajectory
+   joints:
+    - joint_0
+    - joint_1
+    - joint_2
+    - joint_3
+   gains:
+    joint_0:
+      p: 100
+      d: 1
+      i: 1
+      i_clamp: 1
+    joint_1:
+      p: 100
+      d: 1
+      i: 1
+      i_clamp: 1
+    joint_2:
+      p: 100
+      d: 1
+      i: 1
+      i_clamp: 1
+    joint_3:
+      p: 100
+      d: 1
+      i: 1
+      i_clamp: 1

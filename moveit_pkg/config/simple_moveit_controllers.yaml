@@ -1,0 +1,16 @@
+controller_list:
+  - name: end_effector_controller
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: True
+    joints:
+      - joint_4
+  - name: plan_controller
+    action_ns: follow_joint_trajectory
+    type: FollowJointTrajectory
+    default: True
+    joints:
+      - joint_0
+      - joint_1
+      - joint_2
+      - joint_3
