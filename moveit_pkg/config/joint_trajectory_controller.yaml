@@ -3,7 +3,6 @@ end_effector_controller:
     default: True
     joints:
       - joint_4
-
 plan_controller:
     type: position_controllers/JointGroupPositionController
     default: True

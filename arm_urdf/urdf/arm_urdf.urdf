@@ -3,13 +3,6 @@
      Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot name="arm_urdf">
-    
-    <link name="world" />
-    <joint name="world_joint" type="fixed">
-        <origin xyz="0 0 0" rpy="0 0 0" />
-        <parent link="world" />
-        <child link="base_link" />
-    </joint>
     <link name="base_link">
         <inertial>
             <origin xyz="8.53483950180589E-16 1.06858966120171E-15 0.00947651592460926" rpy="0 0 0" />
@@ -32,6 +25,12 @@
             </geometry>
         </collision>
     </link>
+    <link name="world" />
+    <joint name="world_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <parent link="world" />
+        <child link="base_link" />
+    </joint>
     <link name="link_0">
         <inertial>
             <origin xyz="-2.19100150640472E-07 1.65031905488555E-07 0.120415948190145" rpy="0 0 0" />
