@@ -1,0 +1,46 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/niweshsah/ws_moveit/devel/include/**",
+        "/home/niweshsah/mars_rover_ws/devel/include/**",
+        "/home/niweshsah/husky_ws/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/niweshsah/robo_arm5_ws/src/arm_teleop_2/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_planners/chomp/chomp_motion_planner/include/**",
+        "/home/niweshsah/mars_rover_ws/src/Mars-Rover/four_wheel_steering_controller/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/geometric_shapes/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_planners/chomp/chomp_interface/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit_resources/prbt_ikfast_manipulator_plugin/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_ros/benchmarks/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_plugins/moveit_ros_control_interface/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_ros/move_group/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_ros/occupancy_map_monitor/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_ros/robot_interaction/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_ros/moveit_servo/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_setup_assistant/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_plugins/moveit_simple_controller_manager/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit_visual_tools/include/**",
+        "/home/niweshsah/husky_ws/src/my_husky/include/**",
+        "/home/niweshsah/robo_arm_ws/src/my_robot_description/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_planners/pilz_industrial_motion_planner/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/moveit/moveit_planners/pilz_industrial_motion_planner_testutils/include/**",
+        "/home/niweshsah/robo_arm4_ws/src/robotic_arm_control/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/rviz_visual_tools/include/**",
+        "/home/niweshsah/ws_moveit/src/moveit_arm/srdfdom/include/**",
+        "/home/niweshsah/mars_rover_ws/src/Mars-Rover/urdf_geometry_parser/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
