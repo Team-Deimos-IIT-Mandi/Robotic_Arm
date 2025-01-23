@@ -22,7 +22,7 @@ class Controller:
         self.camera_frame_left = rospy.get_param('~camera_frame_left', 'camera_link_base_left')
         self.camera_frame_right = rospy.get_param('~camera_frame_right', 'camera_link_base_right')
         self.base_frame = rospy.get_param('~base_frame', 'base_link')
-        self.baseline = 0.1
+
         # YOLO model
         self.model = YOLO('yolov8n-seg.pt')
 
@@ -42,6 +42,23 @@ class Controller:
         # Results from YOLO model
         self.result_left = None
         self.result_right = None
+        
+        # Keypoints
+        self.keypoints_left = None
+        self.keypoints_right = None
+        
+        # Keyboard points
+        self.keyboard_points = None #dictionary
+        
+        # Camera parameters
+        self.camera_matrix_left = None
+        self.camera_matrix_right = None
+        self.dist_coeffs_left = None
+        self.dist_coeffs_right = None
+        self.baseline = 0.1
+        
+        # Keyboard layout
+        
 
         # TF2
         self.tf_buffer = tf2_ros.Buffer()
@@ -55,6 +72,11 @@ class Controller:
     def image_callback_left(self, msg):
         try:
             self.left_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.keypoints_left = self.processing_image(self.left_img)
+            self.keyboard_points = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+            # self.keyboard_corners,depth = self.calculate_depth()
+            # self.keyboard_points = ke
+            
             
         except Exception as e:
             rospy.logerr(f"Error in left image callback: {e}")
@@ -62,6 +84,7 @@ class Controller:
     def image_callback_right(self, msg):
         try:
             self.right_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.keypoints_right = self.processing_image(self.right_img)
         except Exception as e:
             rospy.logerr(f"Error in right image callback: {e}")
             
@@ -78,15 +101,22 @@ class Controller:
             if class_id == self.class_to_detect:
                 box = result.boxes.xyxy[idx].cpu().numpy()
                 x1, y1, x2, y2 = map(int, box)
-                keyboard_points = np.array(list(self.keyboard_points_dict.values()))
                 box_length = x2 - x1
                 box_width = y2 - y1
-                scaled_points = (keyboard_points / np.array([self.KEYBOARD_LENGTH, self.KEYBOARD_WIDTH])) * \
-                              np.array([box_length, box_width]) + np.array([x1, y1])
-        return
+                # corners = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]])
+                scaled_points = {}
+                for key, value in self.keyboard_points_dict.items():
+                    scaled_x = (value[0] / self.KEYBOARD_LENGTH) * box_length + x1
+                    scaled_y = (value[1] / self.KEYBOARD_WIDTH) * box_width + y1
+                    scaled_points[key] = [int(scaled_x), int(scaled_y)]
+        return scaled_points
 
     def calculate_3d_position(self, key_2d_left, key_2d_right, camera_info_left, camera_info_right):
         """Calculate the 3D position of a key using stereo vision."""
+        
+        k2vl = key_2d_left.values()
+        k2vr = key_2d_right.values()
+        
         fx_left = camera_info_left.K[0]
         fy_left = camera_info_left.K[4]
         cx_left = camera_info_left.K[2]
@@ -97,15 +127,23 @@ class Controller:
         cx_right = camera_info_right.K[2]
         cy_right = camera_info_right.K[5]
 
-        disparity = key_2d_left[0] - key_2d_right[0]
+        disparity = k2vl[0] - k2vr[0]
         if disparity == 0:
             rospy.logerr("Disparity is zero, cannot calculate depth")
             return None
 
         z = (fx_left * self.baseline) / disparity
-        x = (key_2d_left[0] - cx_left) * z / fx_left
-        y = (key_2d_left[1] - cy_left) * z / fy_left
-        return np.array([x, y, z])
+        x = (k2vl[0] - cx_left) * z / fx_left
+        y = (k2vl[1] - cy_left) * z / fy_left
+        final = np.array([x,y,z])
+        return dict(zip(key_2d_left.keys(),final))
+    
+    def display_output(self):
+        # Display the output
+        cv2.imshow("Left Image", self.left_img)
+        cv2.imshow("Right Image", self.right_img)
+        cv2.waitKey(1)
+    
 
     def get_transform(self, camera_point , camera_frame="camera_link2"):
         """Transform a point from the camera frame to the world frame."""
