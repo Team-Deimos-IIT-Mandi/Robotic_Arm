@@ -1,4 +1,9 @@
 import rospy
+import rospy
+from PyQt5.QtWidgets import QApplication
+from threading import Thread
+from PyQt5.QtCore import QTimer
+from gui import TypingGUI
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import PoseStamped
 from cv_bridge import CvBridge
@@ -44,6 +49,14 @@ class Controller:
         # Results from YOLO model
         self.result_left = None
         self.result_right = None
+
+
+        # GUI
+        self.app = QApplication([])
+        self.gui = TypingGUI()
+        self.gui_timer = QTimer()
+        self.gui_timer.timeout.connect(self.update_gui)
+        self.gui_timer.start(100)  # Update every 100ms
         
         # Keypoints
         self.keypoints_left = None
@@ -73,6 +86,20 @@ class Controller:
         self.robot = RobotCommander()
         self.scene = PlanningSceneInterface()
         self.arm_group = MoveGroupCommander("arm")
+    
+    def update_gui(self):
+        """Update the GUI with the latest data."""
+        self.gui.update_images(self.left_img, self.right_img)
+        # Example 2D and 3D data
+        if self.left_img is not None and self.right_img is not None:
+            self.result_left = self.processing_image(self.left_img)
+            self.result_right = self.processing_image(self.right_img)
+            if self.result_left is not None and self.result_right is not None:
+                key_2d_left = self.result_left
+                key_2d_right = self.result_right
+            key_3d = self.calculate_3d_position(key_2d_left, key_2d_right, self.camera_info_left, self.camera_info_right)
+            self.gui.update_coordinates(key_2d_left, key_2d_right, key_3d)
+
 
     def image_callback_left(self, msg):
         try:
