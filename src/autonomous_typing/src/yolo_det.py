@@ -310,6 +310,8 @@ def main():
     try:
         # Instantiate the controller
         keyboard_controller = Controller()
+        print("Press Enter to start scanning the keyboard...")
+        input()
         while keyboard_controller.keyboard_points is None:
             keyboard_controller.scanning()
             rospy.sleep(1)
