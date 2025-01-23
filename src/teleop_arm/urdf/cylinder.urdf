@@ -1,27 +1,81 @@
 <?xml version="1.0"?>
-<robot name="small_cylinder">
+<robot name="cylinder_with_circular_wedge">
   <link name="cylinder_link">
     <visual>
       <origin xyz="0 0 0.5" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.05" length="1"/>
+        <cylinder radius="0.025" length="0.5"/>
       </geometry>
       <material name="red">
         <color rgba="1 0 0 1"/>
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0.5" rpy="0 0 0"/>
       <geometry>
-        <cylinder radius="0.05" length="0.1"/>
+        <cylinder radius="0.025" length="0.5"/>
       </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>1.5</mu>
+            <mu2>1.5</mu2>
+          </ode>
+        </friction>
+        <bounce>
+          <restitution_coefficient>0.0</restitution_coefficient>
+        </bounce>
+        <contact>
+          <ode>
+            <kp>100000</kp>
+            <kd>1.0</kd>
+          </ode>
+        </contact>
+      </surface>
     </collision>
     <inertial>
       <mass value="0.1"/>
-      <origin xyz="0 0 0"/>
-      <inertia ixx="0.00025" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0005"/>
+      <origin xyz="0 0 0.5" rpy="0 0 0"/>
+      <inertia ixx="0.001104" ixy="0.0" ixz="0.0" iyy="0.001104" iyz="0.0" izz="0.00003125"/>
     </inertial>
   </link>
+
+  <link name="wedge_link">
+    <visual>
+      <origin xyz="0 0 0.25" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.02"/> <!-- Circular wedge as a thin ring -->
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.25" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.03" length="0.02"/>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>1.5</mu>
+            <mu2>1.5</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+    <inertial>
+      <mass value="0.02"/>
+      <origin xyz="0 0 0.25" rpy="0 0 0"/>
+      <inertia ixx="0.000005" ixy="0.0" ixz="0.0" iyy="0.000005" iyz="0.0" izz="0.0000025"/>
+    </inertial>
+  </link>
+
+  <joint name="wedge_joint" type="fixed">
+    <parent link="cylinder_link"/>
+    <child link="wedge_link"/>
+    <origin xyz="0 0 0.2" rpy="0 0 0"/>
+  </joint>
 
   <gazebo>
     <static>false</static>
@@ -29,5 +83,8 @@
 
   <gazebo reference="cylinder_link">
     <material>Gazebo/Red</material>
+  </gazebo>
+  <gazebo reference="wedge_link">
+    <material>Gazebo/Blue</material>
   </gazebo>
 </robot>

@@ -271,6 +271,20 @@
             <geometry>
                 <mesh filename="package://Arm_Urdf/meshes/Link_5.STL" />
             </geometry>
+            <surface>
+                <contact>
+                    <ode>
+                        <kp>1e6</kp>
+                        <kd>1</kd>
+                    </ode>
+                </contact>
+                <friction>
+                    <ode>
+                        <mu>1.0</mu>                        <!-- Static friction coefficient -->
+                        <mu2>1.0</mu2>                        <!-- Sliding friction coefficient -->
+                    </ode>
+                </friction>
+            </surface>
         </collision>
     </link>
     <joint name="Joint_5" type="revolute">
@@ -301,6 +315,20 @@
             <geometry>
                 <mesh filename="package://Arm_Urdf/meshes/Link_6.STL" />
             </geometry>
+            <surface>
+                <contact>
+                    <ode>
+                        <kp>1e6</kp>
+                        <kd>1</kd>
+                    </ode>
+                </contact>
+                <friction>
+                    <ode>
+                        <mu>1.0</mu>                        <!-- Static friction coefficient -->
+                        <mu2>1.0</mu2>                        <!-- Sliding friction coefficient -->
+                    </ode>
+                </friction>
+            </surface>
         </collision>
     </link>
     <joint name="Joint_6" type="revolute">
@@ -429,6 +457,20 @@
             <geometry>
                 <mesh filename="package://Arm_Urdf/meshes/Gripper_1.STL" />
             </geometry>
+            <surface>
+                <contact>
+                    <ode>
+                        <kp>1e6</kp>
+                        <kd>1</kd>
+                    </ode>
+                </contact>
+                <friction>
+                    <ode>
+                        <mu>1.0</mu>                        <!-- Static friction coefficient -->
+                        <mu2>1.0</mu2>                        <!-- Sliding friction coefficient -->
+                    </ode>
+                </friction>
+            </surface>
         </collision>
     </link>
     <joint name="Finger_1" type="prismatic">
@@ -459,6 +501,20 @@
             <geometry>
                 <mesh filename="package://Arm_Urdf/meshes/Gripper_2.STL" />
             </geometry>
+            <surface>
+                <contact>
+                    <ode>
+                        <kp>1e6</kp>
+                        <kd>1</kd>
+                    </ode>
+                </contact>
+                <friction>
+                    <ode>
+                        <mu>1.0</mu>                        <!-- Static friction coefficient -->
+                        <mu2>1.0</mu2>                        <!-- Sliding friction coefficient -->
+                    </ode>
+                </friction>
+            </surface>
         </collision>
     </link>
     <joint name="Finger_2" type="prismatic">

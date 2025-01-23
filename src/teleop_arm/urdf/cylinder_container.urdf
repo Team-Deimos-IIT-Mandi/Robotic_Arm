@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<robot name="hollow_square_container">
+  <!-- Link representing the container -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <!-- Front wall -->
+        <box size="0.1 0.01 0.3" />
+      </geometry>
+      <origin xyz="0 0.05 0" rpy="0 0 0" />
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <geometry>
+        <!-- Back wall -->
+        <box size="0.1 0.01 0.3" />
+      </geometry>
+      <origin xyz="0 -0.05 0" rpy="0 0 0" />
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <geometry>
+        <!-- Left wall -->
+        <box size="0.01 0.1 0.3" />
+      </geometry>
+      <origin xyz="-0.05 0 0" rpy="0 0 0" />
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <visual>
+      <geometry>
+        <!-- Right wall -->
+        <box size="0.01 0.1 0.3" />
+      </geometry>
+      <origin xyz="0.05 0 0" rpy="0 0 0" />
+      <material name="blue">
+        <color rgba="0 0 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <!-- Front wall collision -->
+        <box size="0.1 0.01 0.3" />
+      </geometry>
+      <origin xyz="0 0.05 0" rpy="0 0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <!-- Back wall collision -->
+        <box size="0.1 0.01 0.3" />
+      </geometry>
+      <origin xyz="0 -0.05 0" rpy="0 0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <!-- Left wall collision -->
+        <box size="0.01 0.1 0.3" />
+      </geometry>
+      <origin xyz="-0.05 0 0" rpy="0 0 0" />
+    </collision>
+    <collision>
+      <geometry>
+        <!-- Right wall collision -->
+        <box size="0.01 0.1 0.3" />
+      </geometry>
+      <origin xyz="0.05 0 0" rpy="0 0 0" />
+    </collision>
+    <inertial>
+      <mass value="1.0" />
+      <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1" />
+    </inertial>
+  </link>
+</robot>

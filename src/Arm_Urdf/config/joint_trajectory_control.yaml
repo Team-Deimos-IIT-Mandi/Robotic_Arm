@@ -16,6 +16,23 @@ body_controller:
       - Joint_5
       - Joint_6
 
+    constraints:
+      stopped_velocity_tolerance: 0  # Stopped velocity tolerance (m/s)
+      goal_tolerance:  # Goal position tolerance (meters or radians)
+        Joint_1: 0.02
+        Joint_2: 0.02
+        Joint_3: 0.02
+        Joint_4: 0.02
+        Joint_5: 0.05  # Increased tolerance for Joint_5
+        Joint_6: 0.02
+      path_tolerance:  # Path following tolerance (meters or radians)
+        Joint_1: 0.05
+        Joint_2: 0.05
+        Joint_3: 0.05
+        Joint_4: 0.05
+        Joint_5: 0.08  # Increased tolerance for Joint_5
+        Joint_6: 0.05
+
 joint_state_controller:
   type: "joint_state_controller/JointStateController"
   publish_rate: 100

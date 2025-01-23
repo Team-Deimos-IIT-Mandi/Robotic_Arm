@@ -1,0 +1,6 @@
+/logs
+/devel
+/build
+.vscode
+.catkin_tools
+src.zip

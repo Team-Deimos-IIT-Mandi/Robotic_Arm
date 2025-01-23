@@ -13,11 +13,27 @@ def signal_handler(sig, frame):
     moveit_commander.roscpp_shutdown()
     sys.exit(0)
 
+# Function to move the robot arm
+def move_robot_final(move_group, direction):
+    # Define the step size for movement
+    step = 0.05  # 5 cm step size
 
-def move_robot(move_group, dx=0.0, dy=0.0, dz=0.0):
+    # Mapping directions to deltas
+    deltas = {
+        'w': (step, 0.0, 0.0),   # +X
+        's': (-step, 0.0, 0.0),  # -X
+        'a': (0.0, step, 0.0),   # +Y
+        'd': (0.0, -step, 0.0),  # -Y
+        'q': (0.0, 0.0, step),   # +Z
+        'e': (0.0, 0.0, -step)   # -Z
+    }
+
+    # Get the corresponding deltas for the direction
+    dx, dy, dz = deltas.get(direction, (0.0, 0.0, 0.0))
+
     # Get the current pose of the end effector
     current_pose = move_group.get_current_pose().pose
-    
+
     # Define the new target pose
     target_pose = Pose()
     target_pose.position.x = current_pose.position.x + dx
@@ -34,40 +50,23 @@ def move_robot(move_group, dx=0.0, dy=0.0, dz=0.0):
     # Log the new pose
     rospy.loginfo(f"Moved to: {move_group.get_current_pose().pose}")
 
-
-
+# Keyboard press handler
 def on_press(key, move_group):
     try:
-        # Define step size for movement
-        step = 0.05  # 5 cm step size
-
-        if key.char == 'w':  # Move +X
-            move_robot(move_group, dx=step)
-        elif key.char == 's':  # Move -X
-            move_robot(move_group, dx=-step)
-        elif key.char == 'a':  # Move +Y
-            move_robot(move_group, dy=step)
-        elif key.char == 'd':  # Move -Y
-            move_robot(move_group, dy=-step)
-        elif key.char == 'q':  # Move +Z
-            move_robot(move_group, dz=step)
-        elif key.char == 'e':  # Move -Z
-            move_robot(move_group, dz=-step)
-
+        if key.char in ['w', 's', 'a', 'd', 'q', 'e']:
+            move_robot_final(move_group, key.char)
     except AttributeError:
-        pass  
+        pass
 
-
-
+# Main function
 def main():
-    
     signal.signal(signal.SIGINT, signal_handler)
 
     moveit_commander.roscpp_initialize(sys.argv)
     rospy.init_node('teleop_move_arm', anonymous=True)
 
     # Set up MoveIt objects
-    move_group = moveit_commander.MoveGroupCommander("body")  # body is group name in moveit_config
+    move_group = moveit_commander.MoveGroupCommander("body")  # "body" is the group name in MoveIt configuration
 
     rospy.loginfo("""
     Teleoperation started. Use the following keys to move the arm:

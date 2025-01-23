@@ -18,7 +18,6 @@ left_image = None
 right_image = None
 stop_program = False
 
-
 def signal_handler(sig, frame):
     """Handle Ctrl+C signal to exit gracefully."""
     global stop_program
