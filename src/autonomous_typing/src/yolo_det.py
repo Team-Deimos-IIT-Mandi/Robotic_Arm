@@ -55,14 +55,13 @@ class Controller:
     def image_callback_left(self, msg):
         try:
             self.left_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.result_left = self.model(self.left_img, stream=True)
+            
         except Exception as e:
             rospy.logerr(f"Error in left image callback: {e}")
 
     def image_callback_right(self, msg):
         try:
             self.right_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.result_right = self.model(self.right_img, stream=True)
         except Exception as e:
             rospy.logerr(f"Error in right image callback: {e}")
             
@@ -70,6 +69,21 @@ class Controller:
         self.camera_info_left = msg
     def camera_info_callback_right(self, msg):
         self.camera_info_right = msg
+        
+    def processing_image(self, img):
+        result = self.model(img, stream=True)
+        result = result[0]
+        for idx in range(len(result.boxes)):
+            class_id = int(result.boxes.cls[idx].item())
+            if class_id == self.class_to_detect:
+                box = result.boxes.xyxy[idx].cpu().numpy()
+                x1, y1, x2, y2 = map(int, box)
+                keyboard_points = np.array(list(self.keyboard_points_dict.values()))
+                box_length = x2 - x1
+                box_width = y2 - y1
+                scaled_points = (keyboard_points / np.array([self.KEYBOARD_LENGTH, self.KEYBOARD_WIDTH])) * \
+                              np.array([box_length, box_width]) + np.array([x1, y1])
+        return
 
     def calculate_3d_position(self, key_2d_left, key_2d_right, camera_info_left, camera_info_right):
         """Calculate the 3D position of a key using stereo vision."""
