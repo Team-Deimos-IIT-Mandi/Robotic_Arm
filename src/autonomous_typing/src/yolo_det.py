@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from moveit_commander import MoveGroupCommander, RobotCommander, PlanningSceneInterface
+import json
+import os
 
 class Controller:
     def __init__(self):
@@ -50,6 +52,12 @@ class Controller:
         # Keyboard points
         self.keyboard_points = None #dictionary
         
+        self.keyboard_points_dict = None
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        json_path = os.path.join(current_dir, 'keyboard_layout.json')
+        with open(json_path, 'r') as f:
+            self.keyboard_points = json.load(f)
+            
         # Camera parameters
         self.camera_matrix_left = None
         self.camera_matrix_right = None
@@ -57,9 +65,6 @@ class Controller:
         self.dist_coeffs_right = None
         self.baseline = 0.1
         
-        # Keyboard layout
-        
-
         # TF2
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -73,7 +78,8 @@ class Controller:
         try:
             self.left_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.keypoints_left = self.processing_image(self.left_img)
-            self.keyboard_points = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+            if self.scan == 1:
+                self.keyboard_points = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
             # self.keyboard_corners,depth = self.calculate_depth()
             # self.keyboard_points = ke
             
@@ -136,23 +142,30 @@ class Controller:
         x = (k2vl[0] - cx_left) * z / fx_left
         y = (k2vl[1] - cy_left) * z / fy_left
         final = np.array([x,y,z])
+        
+        # Applied the transformation matrix to world frame
+        final = self.get_transform(final)
+        
         return dict(zip(key_2d_left.keys(),final))
     
-    def display_output(self):
+    def display_output(self,img):
         # Display the output
-        cv2.imshow("Left Image", self.left_img)
-        cv2.imshow("Right Image", self.right_img)
+        cv2.imshow("Image", img)
         cv2.waitKey(1)
-    
+        
+    def scanning(self):
+        self.scan = 1
+        rospy.sleep(1)
+        self.scan = 0
 
-    def get_transform(self, camera_point , camera_frame="camera_link2"):
+    def get_transform(self, camera_point):
         """Transform a point from the camera frame to the world frame."""
         tf_buffer = tf2_ros.Buffer()
         listener = tf2_ros.TransformListener(tf_buffer)
 
         try:
             # Wait for the transform to be available
-            transform = tf_buffer.lookup_transform("world", camera_frame, rospy.Time(0), rospy.Duration(1.0))
+            transform = tf_buffer.lookup_transform("world", self.camera_frame_left, rospy.Time(0), rospy.Duration(1.0))
             # Transform the point
             world_point = do_transform_point(camera_point, transform)
             return world_point
@@ -192,42 +205,129 @@ class Controller:
         # This can be implemented with the YOLO model and stereovision again.
         return np.array([0.0, 0.0, 0.0])  # Replace with actual calculation
 
-    def main(self):
-        rospy.loginfo("Waiting for images...")
-        rospy.sleep(2.0)  # Wait for the images to populate
+    def string_to_keyboard_clicks(input_string):
+        keyboard_clicks = []
+        caps_active = False  # Track CAPS state
 
-        # Process images
-        results_left = self.model(self.left_img)
-        results_right = self.model(self.right_img)
-
-        # Extract key positions (replace with your detection logic)
-        key_2d_left = [100, 200]  # Example detection
-        key_2d_right = [95, 200]  # Example detection
-
-        camera_info_left = CameraInfo()  # Populate with actual camera info
-        camera_info_right = CameraInfo()
-
-        key_3d_position = self.calculate_3d_position(key_2d_left, key_2d_right, camera_info_left, camera_info_right)
-        if key_3d_position is None:
-            rospy.logerr("Could not calculate 3D position")
-            return
-
-        rospy.loginfo(f"3D Position of key: {key_3d_position}")
-
-        # Move the robotic arm
-        if self.move_arm_to_position(key_3d_position):
-            rospy.loginfo("Key reached successfully")
-
-            # Verify key press
-            if self.check_key_pressed(key_3d_position):
-                rospy.loginfo("Key pressed successfully")
+        for char in input_string:
+            if char.isupper() and not caps_active:
+                # Activate CAPS if the character is uppercase and CAPS is not active
+                keyboard_clicks.append("CAPSLOCK")
+                caps_active = True
+            elif char.islower() and caps_active:
+                # Deactivate CAPS if the character is lowercase and CAPS is active
+                keyboard_clicks.append("CAPSLOCK")
+                caps_active = False
+            
+            if char.isalnum() or char in {'-', '_'}:  # Letters, numbers, and some symbols
+                keyboard_clicks.append(char.upper() if not caps_active else char)
+            elif char.isspace():
+                keyboard_clicks.append("SPACE")
             else:
-                rospy.logerr("Key press failed")
-        else:
-            rospy.logerr("Failed to move arm to position")
+                # Add any non-alphanumeric, non-space character as is
+                keyboard_clicks.append(char)
+        
+        # End with ENTER
+        keyboard_clicks.append("ENTER")
+        
+        return keyboard_clicks
+    
+    def control_flow(self):
+        """
+        Execute keyboard clicks by moving the robotic arm to each key's position
+        
+        Args:
+            input_string (str): The string to be typed
+        
+        Returns:
+            bool: Success of the entire typing operation
+        """
+        # Prompt user for input string
+        input_string = input("Enter the string to type: ")
 
+        while True:
+            print(f"You entered: {input_string}")
+            confirmation = input("Do you want to proceed with this string? (y/n): ").lower()
+            if confirmation == 'y':
+                break
+            else:
+                input_string = input("Please enter the new string to type: ")
+        
+        # Convert input string to keyboard clicks
+        keyboard_clicks = self.string_to_keyboard_clicks(input_string)
+        
+        # Check if keyboard points are detected
+        if not self.keyboard_points:
+            rospy.logerr("No keyboard points detected. Cannot proceed with typing.")
+            return False
+        
+        try:
+            # Move to home position before starting
+            home_pose = self.arm_group.get_current_pose().pose
+            
+            self.arm_group.set_pose_target(home_pose)
+            self.arm_group.go(wait=True)
+            self.arm_group.stop()
+            
+            # Iterate through keyboard clicks
+            for click in keyboard_clicks:
+                # Check if the click exists in keyboard points
+                if click not in self.keyboard_points:
+                    rospy.logwarn(f"Key {click} not found in keyboard points. Skipping.")
+                    continue
+                
+                # Get the 3D position for this key
+                key_position = self.keyboard_points[click]
+                
+                # Move arm to the key position
+                success = self.move_arm_to_position(key_position)
+                if not success:
+                    rospy.logerr(f"Failed to move to key {click}")
+                    return False
+                
+                # Simulate key press (you might want to add actual key press mechanism)
+                rospy.sleep(0.5)  # Brief pause to simulate key press
+                
+                # Optional: Verify key press
+                if not self.check_key_pressed(key_position):
+                    rospy.logwarn(f"Key press verification failed for {click}")
+            
+            # Return to home position after typing
+            self.arm_group.set_pose_target(home_pose)
+            self.arm_group.go(wait=True)
+            self.arm_group.stop()
+            
+            return True
+        
+        except Exception as e:
+            rospy.logerr(f"Error in control flow: {e}")
+            return False
+    
+def main():
+    # Initialize the ROS node
+    rospy.init_node('keyboard_typing_robot', anonymous=True)
+
+    try:
+        # Instantiate the controller
+        keyboard_controller = Controller()
+        while keyboard_controller.keyboard_points is None:
+            keyboard_controller.scanning()
+            rospy.sleep(1)
+        
+        # Execute the control flow for typing the input string
+        success = keyboard_controller.control_flow()
+
+        if success:
+            rospy.loginfo("Successfully typed the string on the keyboard.")
+        else:
+            rospy.logerr("Failed to type the string on the keyboard.")
+
+    except rospy.ROSInterruptException:
+        rospy.logerr("ROS Node interrupted.")
+    except Exception as e:
+        rospy.logerr(f"An error occurred: {e}")
+
+    
 
 if __name__ == "__main__":
-    rospy.init_node("autonomous_typing_controller")
-    controller = Controller()
-    controller.main()
+    main()
