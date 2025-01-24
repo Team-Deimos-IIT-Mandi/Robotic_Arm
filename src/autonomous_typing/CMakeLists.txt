@@ -57,6 +57,7 @@ include_directories(
 ## Mark Python scripts for installation
 catkin_install_python(PROGRAMS
   src/keyboard_typing.py
+  src/keyboard_typing3.py
   src/yolo_seg.py
   src/yolo_seg_save.py
   src/controller.py

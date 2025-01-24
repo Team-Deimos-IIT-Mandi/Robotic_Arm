@@ -12,9 +12,6 @@ from moveit_commander import MoveGroupCommander, RobotCommander, PlanningSceneIn
 import json
 import os
 from geometry_msgs.msg import PointStamped
-import pinocchio as pin
-from pinocchio.visualize import MeshcatVisualizer
-
 
 class Controller:
     def __init__(self, debug=False):
@@ -287,173 +284,67 @@ class Controller:
     #     annotated_image_msg = self.bridge.cv2_to_imgmsg(img, encoding="bgr8")
     #     self.annotated_image_pub_r.publish(annotated_image_msg)
     #     # rospy.loginfo("Published annotated image.")
-    def setup_robot(self):
-        """
-        Initialize robot model and visualization
-        """
-        # Get the path to the URDF file
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        urdf_path = os.path.join(script_dir, "../urdf/Arm_Urdf.urdf")
-
-        # Build the robot model
-        self.model = pin.buildModelFromUrdf(urdf_path)
-        self.data = self.model.createData()
-
-        # Load visualization models
-        self.visual_model = pin.buildGeomFromUrdf(self.model, urdf_path, pin.GeometryType.VISUAL)
-        self.collision_model = pin.buildGeomFromUrdf(self.model, urdf_path, pin.GeometryType.COLLISION)
-
-        # Setup visualizer
-        self.viz = MeshcatVisualizer(self.model, self.collision_model, self.visual_model)
-        self.viz.initViewer(loadModel=True)
-
-        # Get end effector frame
-        self.end_effector_frame = self.model.getFrameId("Link_6")  # Adjust frame name if needed
-
-        # Get joint limits
-        self.q_min = self.model.lowerPositionLimit
-        self.q_max = self.model.upperPositionLimit 
-    def move_to_key(self, target_position: np.ndarray):
-        """
-        Move to a specific key position
-        """
-        if self.check_workspace_limits(target_position):
-            self.set_target(target_position)
-            
-            # Wait for movement to complete
-            while hasattr(self, 'current_target'):
-                rospy.sleep(0.01)
-        else:
-            print("Target position out of workspace bounds")
-
-    def move_to_home(self):
-        """
-        Move the robot to its home position
-        """
-        self.move_to_key(self.home_position)
         
-    def start_typing(self):
-        """
-        Start the typing process
-        TODO: Implement typing logic
-        """
-        print("Typing functionality not yet implemented")
 
-    def control_loop(self):
+    
+    def move_arm_to_position(self, position_3d, tolerance=0.1):
         """
-        Main control loop for robot movement
-        Checks key positions and executes movements based on current state
+        Move the robotic arm to the calculated 3D position with incremental steps.
+        
+        Args:
+            position_3d (np.array): Target 3D position 
+            tolerance (float): Acceptable distance to target position
+        
+        Returns:
+            bool: Success of movement
         """
         try:
-            # Get current robot state
-            pin.forwardKinematics(self.model, self.data, self.q)
-            pin.updateFramePlacements(self.model, self.data)
-            current_position = self.data.oMf[self.end_effector_frame].translation
+            # Get current pose
+            current_pose = self.arm_group.get_current_pose().pose
             
-            # Safety check - ensure we're not too close to workspace limits
-            if not self.check_workspace_limits(current_position):
-                print("Warning: Approaching workspace limits")
-                self.emergency_stop()
-                return
+            # Compute the distance to the goal
+            dx = position_3d[0] - current_pose.position.x
+            dy = position_3d[1] - current_pose.position.y
+            dz = position_3d[2] - current_pose.position.z
+            distance = np.linalg.norm([dx, dy, dz])
+
+            # Move in small steps until within tolerance
+            step_size = 0.05  # 5 cm per step
+            while distance > tolerance and not rospy.is_shutdown():
+                # Calculate step sizes proportional to direction
+                step_dx = dx * min(step_size / distance, 1.0)
+                step_dy = dy * min(step_size / distance, 1.0)
+                step_dz = dz * min(step_size / distance, 1.0)
+
+                # Create target pose
+                target_pose = Pose()
+                target_pose.position.x = current_pose.position.x + step_dx
+                target_pose.position.y = current_pose.position.y + step_dy
+                target_pose.position.z = current_pose.position.z + step_dz
+                target_pose.orientation = current_pose.orientation
+
+                # Set and execute target pose
+                self.arm_group.set_pose_target(target_pose)
+                success = self.arm_group.go(wait=True)
+                self.arm_group.stop()
                 
-            # Check if we're currently executing a movement
-            if hasattr(self, 'current_target'):
-                # Get distance to target
-                error = self.current_target - current_position
-                
-                if np.linalg.norm(error) < 1e-3:  # Within tolerance
-                    # Movement complete
-                    delattr(self, 'current_target')
-                else:
-                    # Continue movement to target
-                    # Compute Jacobian
-                    J = pin.computeFrameJacobian(self.model, self.data, self.q, 
-                                            self.end_effector_frame,
-                                            pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
-                    
-                    # QP Setup for smooth motion
-                    H = J.T @ J + self.damping * np.eye(self.model.nv)
-                    g = -J.T @ error
-                    
-                    # Joint limits constraints
-                    q_upper_violation = (self.q_max - self.q) / self.dt
-                    q_lower_violation = (self.q_min - self.q) / self.dt
-                    
-                    C = np.vstack([np.eye(self.model.nv), -np.eye(self.model.nv),
-                                np.eye(self.model.nv), -np.eye(self.model.nv)])
-                    b = np.hstack([self.theta_dot_min, -self.theta_dot_max,
-                                q_lower_violation, -q_upper_violation])
-                    
-                    # Solve QP for joint velocities
-                    try:
-                        dq = solve_qp(H, g, C.T, b)[0]
-                        
-                        # Scale velocities if needed
-                        vel_scale = min(1.0, self.velocity_scale / np.max(np.abs(dq)))
-                        dq *= vel_scale
-                        
-                        # Update configuration
-                        self.q = pin.integrate(self.model, self.q, dq * self.dt)
-                        
-                        # Update visualization and send to robot
-                        self.viz.display(self.q)
-                        self.publish_joint_angles(self.q)
-                        
-                    except Exception as e:
-                        print(f"QP solver error: {e}")
-                        self.emergency_stop()
-                        
+                if not success:
+                    rospy.logerr("Failed to move incrementally")
+                    return False
+
+                # Update current pose and recalculate distance
+                current_pose = self.arm_group.get_current_pose().pose
+                dx = position_3d[0] - current_pose.position.x
+                dy = position_3d[1] - current_pose.position.y
+                dz = position_3d[2] - current_pose.position.z
+                distance = np.linalg.norm([dx, dy, dz])
+
+            self.arm_group.clear_pose_targets()
+            return True
+
         except Exception as e:
-            print(f"Control loop error: {e}")
-            self.emergency_stop()
-
-    def set_target(self, target_position):
-        """
-        Set a new target position for the control loop
-        """
-        if self.check_workspace_limits(target_position):
-            self.current_target = target_position
-        else:
-            print("Target position outside workspace limits")
-    
-    def emergency_stop(self):
-        """
-        Emergency stop function
-        """
-        self.timer.stop()
-        # Stop all movement
-        self.publish_joint_angles(self.q)
-        print("Emergency stop activated!")
-        
-    def check_workspace_limits(self, position):
-        """
-        Check if target position is within robot workspace
-        """
-        # Define workspace limits
-        workspace_limits = {
-            'x': (-0.5, 0.5),  # meters
-            'y': (-0.5, 0.5),
-            'z': (0.0, 0.6)
-        }
-        
-        return (workspace_limits['x'][0] <= position[0] <= workspace_limits['x'][1] and
-                workspace_limits['y'][0] <= position[1] <= workspace_limits['y'][1] and
-                workspace_limits['z'][0] <= position[2] <= workspace_limits['z'][1])
-    
-    def move_arm_to_position(self, position_3d):
-        """Move the robotic arm to the calculated 3D position."""
-        pose_target = PoseStamped()
-        pose_target.header.frame_id = self.base_frame
-        pose_target.pose.position.x = position_3d[0]
-        pose_target.pose.position.y = position_3d[1]
-        pose_target.pose.position.z = position_3d[2]
-        pose_target.pose.orientation.w = 1.0
-
-        self.arm_group.set_pose_target(pose_target)
-        success = self.arm_group.go(wait=True)
-        self.arm_group.stop()
-        self.arm_group.clear_pose_targets()
-        return success
+            rospy.logerr(f"Error in move_arm_to_position: {e}")
+            return False
 
     def check_key_pressed(self, position_3d):
         """Verify if the key is pressed correctly."""
@@ -564,12 +455,22 @@ class Controller:
                 
                 # Get the 3D position for this key
                 key_position = self.keyboard_points_3d[click]
-                hover_position = key_position + np.array([0, -0.1, 0])
+                # hover_position =   key_position + np.array([0, -0.1, 0])
                 
-                # Move arm to the key position
-                print(hover_position)
-                success = self.move_arm_to_position(hover_position)
-                print(success)
+                # # Move arm to the key position
+                # print(hover_position)
+                # success = self.move_arm_to_position(hover_position)
+                # print(success)
+                # Before moving to a key
+                if click not in self.keyboard_points_3d:
+                    rospy.logwarn(f"3D position for key {click} not found. Skipping.")
+                    continue
+
+                # When moving to position
+                success = self.move_arm_to_position(key_position)
+                if not success:
+                    rospy.logerr(f"Failed to move to key {click}. Attempting to continue.")
+                    continue  # Skip this key instead of stopping entire operation
                 
                 # success = self.move_arm_to_position(key_position)
                 if not success:
@@ -582,6 +483,9 @@ class Controller:
                 # Optional: Verify key press
                 if not self.check_key_pressed(key_position):
                     rospy.logwarn(f"Key press verification failed for {click}")
+                    
+                if success:
+                    rospy.loginfo(f"Successfully typed key {click}")
             
             # Return to home position after typing
             self.arm_group.set_pose_target(home_pose)

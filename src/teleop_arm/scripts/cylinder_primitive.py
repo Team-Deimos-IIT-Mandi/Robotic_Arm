@@ -66,11 +66,12 @@ def move_robot(move_group, dx=0.0, dy=0.0, dz=0.0):
 
 def on_press(key, move_group):
     try:
-        if key.char == 'g':  # Move to a goal
+        # if key.char == 'g':  # Move to a goal
             # Define goal position (example goal)
-            goal_x = 0 # Replace with your desired x-coordinate
-            goal_y = -0.7  # Replace with your desired y-coordinate
-            goal_z = 0.5  # Replace with your desired z-coordinate
+            # [   0.038833    -0.65507     0.16842]
+            goal_x = 0.038833  # Replace with your desired x-coordinate
+            goal_y = -0.65507  # Replace with your desired y-coordinate
+            goal_z = 0.16842  # Replace with your desired z-coordinate
             move_to_goal(move_group, goal_x, goal_y, goal_z)
 
     except AttributeError:
@@ -91,9 +92,10 @@ def main():
         g → Move to a specific goal position
     """)
 
-    with keyboard.Listener(on_press=lambda key: on_press(key, move_group)) as listener:
-        rospy.spin()  # Keep the node running
-        listener.join()
+    # with keyboard.Listener(on_press=lambda key: on_press(key, move_group)) as listener:
+    #     rospy.spin()  # Keep the node running
+    #     listener.join()
+    on_press(None, move_group)
 
     moveit_commander.roscpp_shutdown()
 
