@@ -13,8 +13,8 @@ import os
 from geometry_msgs.msg import Pose
 import logging
 # Suppress YOLOv8 logs
-os.environ['YOLO_LOG_LEVEL'] = 'error'  # Set the YOLO logging level
-logging.getLogger("ultralytics").setLevel(logging.ERROR)
+# os.environ['YOLO_LOG_LEVEL'] = 'error'  # Set the YOLO logging level
+# logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
 
 class Controller:
@@ -45,6 +45,9 @@ class Controller:
 
         # YOLO model
         self.model = YOLO('yolov8n-seg.pt')
+        # Suppress YOLOv8 logs
+        os.environ['YOLO_LOG_LEVEL'] = 'error'  # Set the YOLO logging level
+        logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
         # Subscribers
         self.bridge = CvBridge()
@@ -123,7 +126,7 @@ class Controller:
         print("Getting keyboard points")
         print("left",self.keypoints_left)
         print("right",self.keypoints_right)
-        input(">>")
+        # input(">>")
         self.keyboard_points_3d = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
         
         
@@ -187,6 +190,73 @@ class Controller:
         
         return dict(zip(key_2d_left.keys(),final))
     
+    def calculate_3d_position_pnp(self, key_2d, camera_info):
+        """Calculate the 3D position of keyboard keys using PnP method."""
+        
+        # Extract camera matrix and distortion coefficients
+        camera_matrix = np.array(camera_info.K).reshape(3, 3)
+        dist_coeffs = np.array(camera_info.D)
+        
+        # Prepare model points from keyboard layout
+        model_points = np.zeros((len(key_2d), 3))
+        for i, key in enumerate(key_2d.keys()):
+            model_points[i, 0] = self.keyboard_points[key][0]  # X
+            model_points[i, 1] = self.keyboard_points[key][1]  # Y
+        
+        # Prepare image points (2D key locations)
+        image_points = np.array(list(key_2d.values()))
+        
+        # Solve PnP to get rotation and translation vectors
+        try:
+            success, rvec, tvec = cv2.solvePnP(
+                model_points, 
+                image_points, 
+                camera_matrix, 
+                dist_coeffs,
+                flags=cv2.SOLVEPNP_ITERATIVE
+            )
+            
+            if not success:
+                rospy.logerr("PnP estimation failed")
+                return None
+            
+            # Convert rotation vector to rotation matrix
+            R, _ = cv2.Rodrigues(rvec)
+            
+            # Create 3D points for each key in camera frame
+            key_3d_positions = {}
+            for key, point2d in zip(key_2d.keys(), image_points):
+                # Project model point to 3D
+                point3d = np.dot(R, model_points[list(key_2d.keys()).index(key)]) + tvec.flatten()
+                
+                # Transform to world frame
+                world_point = self.get_transform(point3d)
+                key_3d_positions[key] = world_point
+            
+            return key_3d_positions
+        
+        except Exception as e:
+            rospy.logerr(f"Error in 3D position calculation: {e}")
+            return None
+
+    # Modify the control flow to use the new method
+    def get_keyboard_points(self):
+        """Get keyboard points using PnP on both cameras"""
+        if self.keypoints_left and self.camera_info_left:
+            left_points = self.calculate_3d_position(
+                self.keypoints_left, 
+                self.camera_info_left
+            )
+        
+        if self.keypoints_right and self.camera_info_right:
+            right_points = self.calculate_3d_position(
+                self.keypoints_right, 
+                self.camera_info_right
+            )
+        
+        # Merge or validate points from both cameras if needed
+        self.keyboard_points_3d = left_points or right_points
+    
     def display_output_l(self, img, corners):
         # Create a box
         for i in range(4):
@@ -206,10 +276,6 @@ class Controller:
         self.annotated_image_pub_r.publish(annotated_image_msg)
         # rospy.loginfo("Published annotated image.")
         
-    def scanning(self):
-        self.scan = 1
-        rospy.sleep(1)
-        self.scan = 0
 
     def get_transform(self, camera_point):
         """Transform a point from the camera frame to the world frame."""
@@ -378,18 +444,24 @@ def main():
         keyboard_controller = Controller()
         # print("Press Enter to start the keyboard...")
         # input()
-        rospy.sleep(7)
+        rospy.sleep(10)
         # while keyboard_controller.keyboard_points is None:
         #     keyboard_controller.scanning()
         #     rospy.sleep(1)
         
         # Execute the control flow for typing the input string
-        success = keyboard_controller.control_flow()
+        # success = keyboard_controller.control_flow()
+        while keyboard_controller.keyboard_points_3d is None:
+            rospy.INFO("Scanning...")
+            keyboard_controller.get_key_position_3d()
+            rospy.sleep(1)
+            
+        print(keyboard_controller.keyboard_points_3d)
 
-        if success:
-            rospy.loginfo("Successfully typed the string on the keyboard.")
-        else:
-            rospy.logerr("Failed to type the string on the keyboard.")
+        # if success:
+        #     rospy.loginfo("Successfully typed the string on the keyboard.")
+        # else:
+        #     rospy.logerr("Failed to type the string on the keyboard.")
 
     except rospy.ROSInterruptException:
         rospy.logerr("ROS Node interrupted.")
