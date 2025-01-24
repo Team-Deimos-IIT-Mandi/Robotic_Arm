@@ -12,6 +12,9 @@ from moveit_commander import MoveGroupCommander, RobotCommander, PlanningSceneIn
 import json
 import os
 from geometry_msgs.msg import PointStamped
+import pinocchio as pin
+from pinocchio.visualize import MeshcatVisualizer
+
 
 class Controller:
     def __init__(self, debug=False):
@@ -284,8 +287,158 @@ class Controller:
     #     annotated_image_msg = self.bridge.cv2_to_imgmsg(img, encoding="bgr8")
     #     self.annotated_image_pub_r.publish(annotated_image_msg)
     #     # rospy.loginfo("Published annotated image.")
-        
+    def setup_robot(self):
+        """
+        Initialize robot model and visualization
+        """
+        # Get the path to the URDF file
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        urdf_path = os.path.join(script_dir, "../urdf/Arm_Urdf.urdf")
 
+        # Build the robot model
+        self.model = pin.buildModelFromUrdf(urdf_path)
+        self.data = self.model.createData()
+
+        # Load visualization models
+        self.visual_model = pin.buildGeomFromUrdf(self.model, urdf_path, pin.GeometryType.VISUAL)
+        self.collision_model = pin.buildGeomFromUrdf(self.model, urdf_path, pin.GeometryType.COLLISION)
+
+        # Setup visualizer
+        self.viz = MeshcatVisualizer(self.model, self.collision_model, self.visual_model)
+        self.viz.initViewer(loadModel=True)
+
+        # Get end effector frame
+        self.end_effector_frame = self.model.getFrameId("Link_6")  # Adjust frame name if needed
+
+        # Get joint limits
+        self.q_min = self.model.lowerPositionLimit
+        self.q_max = self.model.upperPositionLimit 
+    def move_to_key(self, target_position: np.ndarray):
+        """
+        Move to a specific key position
+        """
+        if self.check_workspace_limits(target_position):
+            self.set_target(target_position)
+            
+            # Wait for movement to complete
+            while hasattr(self, 'current_target'):
+                rospy.sleep(0.01)
+        else:
+            print("Target position out of workspace bounds")
+
+    def move_to_home(self):
+        """
+        Move the robot to its home position
+        """
+        self.move_to_key(self.home_position)
+        
+    def start_typing(self):
+        """
+        Start the typing process
+        TODO: Implement typing logic
+        """
+        print("Typing functionality not yet implemented")
+
+    def control_loop(self):
+        """
+        Main control loop for robot movement
+        Checks key positions and executes movements based on current state
+        """
+        try:
+            # Get current robot state
+            pin.forwardKinematics(self.model, self.data, self.q)
+            pin.updateFramePlacements(self.model, self.data)
+            current_position = self.data.oMf[self.end_effector_frame].translation
+            
+            # Safety check - ensure we're not too close to workspace limits
+            if not self.check_workspace_limits(current_position):
+                print("Warning: Approaching workspace limits")
+                self.emergency_stop()
+                return
+                
+            # Check if we're currently executing a movement
+            if hasattr(self, 'current_target'):
+                # Get distance to target
+                error = self.current_target - current_position
+                
+                if np.linalg.norm(error) < 1e-3:  # Within tolerance
+                    # Movement complete
+                    delattr(self, 'current_target')
+                else:
+                    # Continue movement to target
+                    # Compute Jacobian
+                    J = pin.computeFrameJacobian(self.model, self.data, self.q, 
+                                            self.end_effector_frame,
+                                            pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
+                    
+                    # QP Setup for smooth motion
+                    H = J.T @ J + self.damping * np.eye(self.model.nv)
+                    g = -J.T @ error
+                    
+                    # Joint limits constraints
+                    q_upper_violation = (self.q_max - self.q) / self.dt
+                    q_lower_violation = (self.q_min - self.q) / self.dt
+                    
+                    C = np.vstack([np.eye(self.model.nv), -np.eye(self.model.nv),
+                                np.eye(self.model.nv), -np.eye(self.model.nv)])
+                    b = np.hstack([self.theta_dot_min, -self.theta_dot_max,
+                                q_lower_violation, -q_upper_violation])
+                    
+                    # Solve QP for joint velocities
+                    try:
+                        dq = solve_qp(H, g, C.T, b)[0]
+                        
+                        # Scale velocities if needed
+                        vel_scale = min(1.0, self.velocity_scale / np.max(np.abs(dq)))
+                        dq *= vel_scale
+                        
+                        # Update configuration
+                        self.q = pin.integrate(self.model, self.q, dq * self.dt)
+                        
+                        # Update visualization and send to robot
+                        self.viz.display(self.q)
+                        self.publish_joint_angles(self.q)
+                        
+                    except Exception as e:
+                        print(f"QP solver error: {e}")
+                        self.emergency_stop()
+                        
+        except Exception as e:
+            print(f"Control loop error: {e}")
+            self.emergency_stop()
+
+    def set_target(self, target_position):
+        """
+        Set a new target position for the control loop
+        """
+        if self.check_workspace_limits(target_position):
+            self.current_target = target_position
+        else:
+            print("Target position outside workspace limits")
+    
+    def emergency_stop(self):
+        """
+        Emergency stop function
+        """
+        self.timer.stop()
+        # Stop all movement
+        self.publish_joint_angles(self.q)
+        print("Emergency stop activated!")
+        
+    def check_workspace_limits(self, position):
+        """
+        Check if target position is within robot workspace
+        """
+        # Define workspace limits
+        workspace_limits = {
+            'x': (-0.5, 0.5),  # meters
+            'y': (-0.5, 0.5),
+            'z': (0.0, 0.6)
+        }
+        
+        return (workspace_limits['x'][0] <= position[0] <= workspace_limits['x'][1] and
+                workspace_limits['y'][0] <= position[1] <= workspace_limits['y'][1] and
+                workspace_limits['z'][0] <= position[2] <= workspace_limits['z'][1])
     
     def move_arm_to_position(self, position_3d):
         """Move the robotic arm to the calculated 3D position."""
