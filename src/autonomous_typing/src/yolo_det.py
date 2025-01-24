@@ -10,20 +10,38 @@ from ultralytics import YOLO
 from moveit_commander import MoveGroupCommander, RobotCommander, PlanningSceneInterface
 import json
 import os
+from geometry_msgs.msg import Pose
+import logging
+# Suppress YOLOv8 logs
+os.environ['YOLO_LOG_LEVEL'] = 'error'  # Set the YOLO logging level
+logging.getLogger("ultralytics").setLevel(logging.ERROR)
+
 
 class Controller:
     def __init__(self):
+        # Initialize the keyboard_points_dict to an empty dictionary
+        # self.keyboard_points_dict = {}
+        # Initialize scan to a default value (e.g., 0 or False)
+        self.scan = 0
         # Parameters
         self.KEYBOARD_LENGTH = 354.076
         self.KEYBOARD_WIDTH = 123.444
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        json_path = os.path.join(current_dir, 'keyboard_layout.json')
+        with open(json_path, 'r') as f:
+            rospy.loginfo(f"Loading keyboard points from {json_path}")
+            self.keyboard_points = json.load(f)
+            
+            
         self.class_to_detect = 66
-        self.camera_input_left = rospy.get_param('~input_topic_left', '/camera_base_left/image_raw')
-        self.camera_info_left = rospy.get_param('~camera_info_topic', '/camera_base_left/camera_info')
-        self.camera_input_right = rospy.get_param('~input_topic_right', '/camera_base_right/image_raw')
-        self.camera_info_right = rospy.get_param('~camera_info_topic', '/camera_base_right/camera_info')
+        self.camera_input_left = rospy.get_param('~input_topic_left', '/camera_gripper_left/image_raw')
+        self.camera_info_left = rospy.get_param('~camera_info_topic', '/camera_gripper_left/camera_info')
+        self.camera_input_right = rospy.get_param('~input_topic_right', '/camera_gripper_right/image_raw')
+        self.camera_info_right = rospy.get_param('~camera_info_topic', '/camera_gripper_right/camera_info')
         self.camera_frame_left = rospy.get_param('~camera_frame_left', 'camera_link_base_left')
         self.camera_frame_right = rospy.get_param('~camera_frame_right', 'camera_link_base_right')
         self.base_frame = rospy.get_param('~base_frame', 'base_link')
+
 
         # YOLO model
         self.model = YOLO('yolov8n-seg.pt')
@@ -34,7 +52,11 @@ class Controller:
         self.subscriber_right = rospy.Subscriber(self.camera_input_right, Image, self.image_callback_right)
         self.camera_info_sub_left = rospy.Subscriber(self.camera_info_left, CameraInfo, self.camera_info_callback_left)
         self.camera_info_sub_right = rospy.Subscriber(self.camera_info_right, CameraInfo, self.camera_info_callback_right)
-
+        
+        # Publishers
+        self.annotated_image_pub_l = rospy.Publisher("/annotated_image_l", Image, queue_size=10)
+        self.annotated_image_pub_r = rospy.Publisher("/annotated_image_r", Image, queue_size=10)
+        
         # Images from cameras
         self.left_img = None
         self.right_img = None
@@ -50,14 +72,8 @@ class Controller:
         self.keypoints_right = None
         
         # Keyboard points
-        self.keyboard_points = None #dictionary
-        
-        self.keyboard_points_dict = None
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        json_path = os.path.join(current_dir, 'keyboard_layout.json')
-        with open(json_path, 'r') as f:
-            self.keyboard_points = json.load(f)
-            
+        self.keyboard_points_3d = None
+
         # Camera parameters
         self.camera_matrix_left = None
         self.camera_matrix_right = None
@@ -72,16 +88,19 @@ class Controller:
         # MoveIt setup
         self.robot = RobotCommander()
         self.scene = PlanningSceneInterface()
-        self.arm_group = MoveGroupCommander("arm")
+        self.arm_group = MoveGroupCommander("body")
 
     def image_callback_left(self, msg):
         try:
             self.left_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.keypoints_left = self.processing_image(self.left_img)
-            if self.scan == 1:
-                self.keyboard_points = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+            self.keypoints_left,corners = self.processing_image(self.left_img)
+            
+            # if self.keyboard_points_3d is None:
+            #     self.keyboard_points_3d = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+            #     print(self.keyboard_points_3d)
             # self.keyboard_corners,depth = self.calculate_depth()
             # self.keyboard_points = ke
+            self.display_output_l(self.left_img, corners)
             
             
         except Exception as e:
@@ -90,7 +109,8 @@ class Controller:
     def image_callback_right(self, msg):
         try:
             self.right_img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            self.keypoints_right = self.processing_image(self.right_img)
+            self.keypoints_right,corners = self.processing_image(self.right_img)
+            self.display_output_r(self.right_img, corners)
         except Exception as e:
             rospy.logerr(f"Error in right image callback: {e}")
             
@@ -99,9 +119,25 @@ class Controller:
     def camera_info_callback_right(self, msg):
         self.camera_info_right = msg
         
+    def get_keyboard_points(self):
+        print("Getting keyboard points")
+        print("left",self.keypoints_left)
+        print("right",self.keypoints_right)
+        input(">>")
+        self.keyboard_points_3d = self.calculate_3d_position(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+        
+        
     def processing_image(self, img):
+        # Ensure `self.keyboard_points_dict` is initialized
+        # if not self.keyboard_points_dict:
+        #     rospy.logerr("keyboard_points_dict is not initialized!")
+        #     return None
+
+        # Initialize `scaled_points` to avoid uninitialized reference
+        scaled_points = {}
+
         result = self.model(img, stream=True)
-        result = result[0]
+        result = next(result)  # Get the first result from the stream
         for idx in range(len(result.boxes)):
             class_id = int(result.boxes.cls[idx].item())
             if class_id == self.class_to_detect:
@@ -109,19 +145,22 @@ class Controller:
                 x1, y1, x2, y2 = map(int, box)
                 box_length = x2 - x1
                 box_width = y2 - y1
-                # corners = np.array([[x1, y1], [x2, y1], [x2, y2], [x1, y2]])
-                scaled_points = {}
-                for key, value in self.keyboard_points_dict.items():
+                corners = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+                # Compute scaled points only for detected class
+                for key, value in self.keyboard_points.items():
                     scaled_x = (value[0] / self.KEYBOARD_LENGTH) * box_length + x1
                     scaled_y = (value[1] / self.KEYBOARD_WIDTH) * box_width + y1
                     scaled_points[key] = [int(scaled_x), int(scaled_y)]
-        return scaled_points
+
+        # Return `scaled_points`, even if empty
+        return scaled_points,corners
+
 
     def calculate_3d_position(self, key_2d_left, key_2d_right, camera_info_left, camera_info_right):
         """Calculate the 3D position of a key using stereo vision."""
         
-        k2vl = key_2d_left.values()
-        k2vr = key_2d_right.values()
+        k2vl = np.array(list(key_2d_left.values()))
+        k2vr = np.array(list(key_2d_right.values()))
         
         fx_left = camera_info_left.K[0]
         fy_left = camera_info_left.K[4]
@@ -135,7 +174,7 @@ class Controller:
 
         disparity = k2vl[0] - k2vr[0]
         if disparity == 0:
-            rospy.logerr("Disparity is zero, cannot calculate depth")
+            rospy.logerr("Dis`parity is zero, cannot calculate depth")
             return None
 
         z = (fx_left * self.baseline) / disparity
@@ -148,10 +187,24 @@ class Controller:
         
         return dict(zip(key_2d_left.keys(),final))
     
-    def display_output(self,img):
-        # Display the output
-        cv2.imshow("Image", img)
-        cv2.waitKey(1)
+    def display_output_l(self, img, corners):
+        # Create a box
+        for i in range(4):
+            cv2.line(img, corners[i], corners[(i+1) % 4], (0, 255, 0), 2)
+        
+        # Convert to ROS Image message and publish
+        annotated_image_msg = self.bridge.cv2_to_imgmsg(img, encoding="bgr8")
+        self.annotated_image_pub_l.publish(annotated_image_msg)
+        # rospy.loginfo("Published annotated image.")
+    def display_output_r(self, img, corners):
+        # Create a box
+        for i in range(4):
+            cv2.line(img, corners[i], corners[(i+1) % 4], (0, 255, 0), 2)
+        
+        # Convert to ROS Image message and publish
+        annotated_image_msg = self.bridge.cv2_to_imgmsg(img, encoding="bgr8")
+        self.annotated_image_pub_r.publish(annotated_image_msg)
+        # rospy.loginfo("Published annotated image.")
         
     def scanning(self):
         self.scan = 1
@@ -205,7 +258,7 @@ class Controller:
         # This can be implemented with the YOLO model and stereovision again.
         return np.array([0.0, 0.0, 0.0])  # Replace with actual calculation
 
-    def string_to_keyboard_clicks(input_string):
+    def string_to_keyboard_clicks(self,input_string):
         keyboard_clicks = []
         caps_active = False  # Track CAPS state
 
@@ -245,21 +298,23 @@ class Controller:
         # Prompt user for input string
         input_string = input("Enter the string to type: ")
 
-        while True:
-            print(f"You entered: {input_string}")
-            confirmation = input("Do you want to proceed with this string? (y/n): ").lower()
-            if confirmation == 'y':
-                break
-            else:
-                input_string = input("Please enter the new string to type: ")
+        # while True:
+        #     print(f"You entered: {input_string}")
+        #     confirmation = input("Do you want to proceed with this string? (y/n): ").lower()
+        #     if confirmation == 'y':
+        #         break
+        #     else:
+        #         input_string = input("Please enter the new string to type: ")
         
         # Convert input string to keyboard clicks
         keyboard_clicks = self.string_to_keyboard_clicks(input_string)
+        print(f"Keyboard clicks: {keyboard_clicks}")
         
         # Check if keyboard points are detected
-        if not self.keyboard_points:
-            rospy.logerr("No keyboard points detected. Cannot proceed with typing.")
-            return False
+        # if not self.keyboard_points_3d:
+        #     print("Keyboard points not detected. Please ensure the keyboard is in view.")
+        self.get_key_position_3d()
+        print(self.keyboard_points_3d)
         
         try:
             # Move to home position before starting
@@ -269,7 +324,18 @@ class Controller:
             self.arm_group.go(wait=True)
             self.arm_group.stop()
             
+            # dummy_pose = Pose()
+            # dummy_pose.position.x = 0.0
+            # dummy_pose.position.y = -0.65
+            # dummy_pose.position.z = 0.3
+            # dummy_pose.orientation.w = 1.0
+            # self.arm_group.set_pose_target(dummy_pose)
+            # success = self.arm_group.go(wait=True)
+            # input("Press Enter to continue...")
+            
             # Iterate through keyboard clicks
+            # for k in self.keyboard_points:
+            #     print(k, self.keyboard_points[k])
             for click in keyboard_clicks:
                 # Check if the click exists in keyboard points
                 if click not in self.keyboard_points:
@@ -277,7 +343,7 @@ class Controller:
                     continue
                 
                 # Get the 3D position for this key
-                key_position = self.keyboard_points[click]
+                key_position = self.keyboard_points_3d[click]
                 
                 # Move arm to the key position
                 success = self.move_arm_to_position(key_position)
@@ -310,11 +376,12 @@ def main():
     try:
         # Instantiate the controller
         keyboard_controller = Controller()
-        print("Press Enter to start scanning the keyboard...")
-        input()
-        while keyboard_controller.keyboard_points is None:
-            keyboard_controller.scanning()
-            rospy.sleep(1)
+        # print("Press Enter to start the keyboard...")
+        # input()
+        rospy.sleep(7)
+        # while keyboard_controller.keyboard_points is None:
+        #     keyboard_controller.scanning()
+        #     rospy.sleep(1)
         
         # Execute the control flow for typing the input string
         success = keyboard_controller.control_flow()

@@ -62,6 +62,7 @@ catkin_install_python(PROGRAMS
   src/controller.py
   src/multicontroller.py
   src/test.py
+  src/yolo_det.py
 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

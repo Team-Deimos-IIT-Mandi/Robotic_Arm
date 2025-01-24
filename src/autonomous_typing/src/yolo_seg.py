@@ -13,9 +13,9 @@ class YoloPixelSegmentationNode:
         rospy.init_node('yolo_pixel_segmentation_node', anonymous=True)
         
         # Parameters
-        self.input_topic = rospy.get_param('~input_topic', '/camera_gripper/image_raw')
-        self.camera_info_topic = rospy.get_param('~camera_info_topic', '/camera_gripper/camera_info')
-        self.output_topic = rospy.get_param('~output_topic', '/camera_gripper/processed_image')
+        self.input_topic = rospy.get_param('~input_topic', '/camera_gripper_left/image_raw')
+        self.camera_info_topic = rospy.get_param('~camera_info_topic', '/camera_gripper_left/camera_info')
+        self.output_topic = rospy.get_param('~output_topic', '/output_image')
         self.class_to_detect = rospy.get_param('~class_to_detect', 66)
         
         # Real-world keyboard dimensions (mm)l
