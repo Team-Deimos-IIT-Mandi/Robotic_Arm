@@ -416,6 +416,7 @@ class Controller:
                 # Move arm to the key position
                 print(hover_position)
                 success = self.move_arm_to_position(hover_position)
+                print(success)
                 
                 # success = self.move_arm_to_position(key_position)
                 if not success:
