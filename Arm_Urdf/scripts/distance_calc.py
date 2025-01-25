@@ -13,22 +13,18 @@ def calculate_distance(link1, link2):
         listener.waitForTransform(link1, link2, rospy.Time(0), rospy.Duration(5.0))
         
         # Lookup the transform between the two links
-        (translation, rotation) = listener.lookupTransform(link1, link2, rospy.Time(0))
-        
-        # Extract translation values
-        x, y, z = translation
+        (translation, rot) = listener.lookupTransform(link1, link2, rospy.Time(0))
+        Re_c = tf.transformations.quaternion_matrix(rot)[:3,:3]
         
         # Calculate Euclidean distance
-        distance = math.sqrt(x**2 + y**2 + z**2)
-        return distance
+        return translation,Re_c
     except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
         rospy.logerr(f"Transform not found between {link1} and {link2}: {e}")
         return None
 
 if __name__ == '__main__':
-    link1 = "camera_link1"
-    link2 = "camera_link2"
+    link1 = "Link_6"
+    link2 = "base_link"
     while not rospy.is_shutdown():    
-        distance = calculate_distance(link1, link2)
-        if distance is not None:
-            rospy.loginfo(f"Distance between {link1} and {link2}: {distance:.2f} meters")
+        distance,r = calculate_distance(link1, link2)
+        print(distance,r)

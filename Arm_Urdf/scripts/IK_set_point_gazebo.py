@@ -37,7 +37,7 @@ q_max = model.upperPositionLimit   # Replace with your robot's joint limits
 
 tol_const=0.05
 # End-effector frame index (modify based on your URDF)
-end_effector_frame = model.getFrameId("Gripper_1")  # Replace with your end-effector frame name
+end_effector_frame = model.getFrameId("Link_6")  # Replace with your end-effector frame name
 # viz.display(q)
 
 def get_desired_pose():
@@ -84,7 +84,7 @@ while not rospy.is_shutdown():
         if np.linalg.norm(error) < tolerance:
             print(f"Converged in {i+1} iterations")
             break
-
+        print(error)
         # Compute Jacobian in local frame since the error is in the end-effector frame
         J = pin.computeFrameJacobian(model, data, q, end_effector_frame, pin.ReferenceFrame.LOCAL)
 

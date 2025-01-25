@@ -9,10 +9,7 @@ from PyQt5.QtCore import Qt, QTimer
 from quadprog import solve_qp  # Install with `pip install quadprog`
 import os
 from pinocchio.visualize import MeshcatVisualizer
-
-# ROS Publisher setup
-rospy.init_node('full_ik_publisher')
-pub = rospy.Publisher('/body_controller/command', JointTrajectory, queue_size=10)
+from control_msgs.msg import JointTrajectoryControllerState
 
 # Load the robot model
 import os
@@ -34,8 +31,9 @@ data = model.createData()
 # End-effector frame
 end_effector_frame = model.getFrameId("Link_6")  # Replace with your end-effector frame name
 
-# Initialize joint configuration
 q = pin.neutral(model)
+   
+
 # viz.display(q)
 
 # Velocity scaling
@@ -107,7 +105,7 @@ class VelocityIKController(QWidget):
         pin.computeJointJacobians(model, data, q)
 
         J = pin.computeFrameJacobian(model, data, q, end_effector_frame, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
-
+        # print(J)
         # Get the desired twist from key input
         desired_twist = self.compute_desired_twist()
 
@@ -140,6 +138,9 @@ class VelocityIKController(QWidget):
             self.publish_joint_angles(q)
 
 if __name__ == "__main__":
+    # ROS Publisher setup
+    rospy.init_node('full_ik_publisher')
+    pub = rospy.Publisher('/body_controller/command', JointTrajectory, queue_size=10)
     app = QApplication([])
     controller = VelocityIKController()
     controller.show()
