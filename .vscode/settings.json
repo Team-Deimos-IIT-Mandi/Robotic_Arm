@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "light": "cpp",
+        "*.tcc": "cpp",
+        "fstream": "cpp"
+    }
+}
