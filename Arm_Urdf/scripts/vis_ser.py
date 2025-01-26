@@ -276,7 +276,7 @@ class VisualServoing:
             points=self.s
             sigma= (self.calculate_area(points))**0.5
 
-            sd=np.array([[395,445],[582,447],[391,664],[585,668]])
+            sd=np.array([[400,500],[575,500],[400,676],[575,676]])
             area = (self.calculate_area(sd))**0.5
 
             error = points - sd
@@ -300,17 +300,17 @@ class VisualServoing:
             s_dot = -(Kp * error)
             post = s_dot - z_mat
             zi_xy = L_in @ post
-            if len(self.errors)>1:
-                if np.linalg.norm(error)<self.errors[-1]:
-                    zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
-                    self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
-                    # self.errors.append(np.linalg.norm(error))
-            else:
-                zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
-                self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
-                # self.errors.append(np.linalg.norm(error))
-            # zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
-            # self.compute_jacobian(zi_cam)
+            # if len(self.errors)>1:
+            #     if np.linalg.norm(error)<self.errors[-1]:
+            #         zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+            #         self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
+            #         # self.errors.append(np.linalg.norm(error))
+            # else:
+            #     zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+            #     self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
+            #     # self.errors.append(np.linalg.norm(error))
+            zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+            self.compute_jacobian(zi_cam)
             self.errors.append(np.linalg.norm(error))
             print("error ",np.linalg.norm(error))
 
