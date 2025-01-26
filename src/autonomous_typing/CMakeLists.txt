@@ -56,14 +56,14 @@ include_directories(
 
 ## Mark Python scripts for installation
 catkin_install_python(PROGRAMS
-  src/keyboard_typing.py
-  src/keyboard_typing3.py
-  src/yolo_seg.py
-  src/yolo_seg_save.py
-  src/controller.py
-  src/multicontroller.py
-  src/test.py
-  src/yolo_det.py
+  # src/keyboard_typing.py
+  # src/keyboard_typing3.py
+  # src/yolo_seg.py
+  # src/yolo_seg_save.py
+  # src/controller.py
+  # src/multicontroller.py
+  src/autonomous.py
+  # src/yolo_det.py
 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
