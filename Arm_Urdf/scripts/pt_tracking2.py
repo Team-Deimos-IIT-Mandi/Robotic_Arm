@@ -41,7 +41,7 @@ class VisualServoing:
             maxLevel=2,
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
         )
-
+        rospy.Subscriber("/camera_gripper/image_raw", Image, self.process_image)
         self.setup_transforms()
 
     def setup_transforms(self):
@@ -240,7 +240,7 @@ class VisualServoing:
             print(f"Point selected: {x}, {y}")
 
     def run(self):
-        rospy.Subscriber("/camera_gripper/image_raw", Image, self.process_image)
+        self.setup_transforms()
         self.select_points()
         rospy.spin()
         cv2.destroyAllWindows()
