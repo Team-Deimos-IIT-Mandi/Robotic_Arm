@@ -25,7 +25,6 @@ class Controller:
         
         rospy.loginfo("Initializing self")
         # Initialize variables
-        self.scan = 0
         self.KEYBOARD_LENGTH = 354.076
         self.KEYBOARD_WIDTH = 123.444
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -91,7 +90,8 @@ class Controller:
             self.keypoints_left, corners = self.processing_image(self.left_img)
             self.display_output_l(self.left_img, corners)
         except Exception as e:
-            rospy.logerr(f"Error in left image callback: {e}")
+            # rospy.logerr(f"Error in left image callback: {e}")
+            pass
 
     def image_callback_right(self, msg):
         rospy.logdebug("Right image callback triggered")
@@ -100,7 +100,8 @@ class Controller:
             self.keypoints_right, corners = self.processing_image(self.right_img)
             self.display_output_r(self.right_img, corners)
         except Exception as e:
-            rospy.logerr(f"Error in right image callback: {e}")
+            # rospy.logerr(f"Error in right image callback: {e}")
+            pass
             
     def camera_info_callback_left(self, msg):
         rospy.logdebug("Left camera info callback triggered")
@@ -164,7 +165,7 @@ class Controller:
             rospy.logwarn("No YOLO results")
             return scaled_points, []
         except Exception as e:
-            rospy.logerr(f"Error in processing_image: {e}")
+            # rospy.logerr(f"Error in processing_image: {e}")
             return scaled_points, []
         
     def calc_3d_pos(self, keypoints_left, keypoints_right, camera_info_left, camera_info_right):
@@ -287,7 +288,7 @@ class Controller:
         
 
     
-    def move_arm_to_position(self, position_3d, tolerance=0.1):
+    def move_arm_to_position(self, position_3d, tolerance=0.02):
         """
         Move the robotic arm to the calculated 3D position with incremental steps.
         
@@ -309,7 +310,7 @@ class Controller:
             distance = np.linalg.norm([dx, dy, dz])
 
             # Move in small steps until within tolerance
-            step_size = 0.05  # 5 cm per step
+            step_size = 0.01
             while distance > tolerance and not rospy.is_shutdown():
                 # Calculate step sizes proportional to direction
                 step_dx = dx * min(step_size / distance, 1.0)
@@ -354,7 +355,7 @@ class Controller:
         if key_new_position is None:
             return False
 
-        movement_threshold = 0.01  # Threshold for detecting key press
+        movement_threshold = 0.02  # Threshold for detecting key press
         displacement = np.linalg.norm(position_3d - key_new_position)
         return displacement > movement_threshold
 
@@ -390,12 +391,132 @@ class Controller:
         
         return keyboard_clicks
     
+    # def control_flow(self):
+    #     """
+    #     Execute keyboard clicks by moving the robotic arm to each key's position
+        
+    #     Args:
+    #         input_string (str): The string to be typed
+        
+    #     Returns:
+    #         bool: Success of the entire typing operation
+    #     """
+    #     # Prompt user for input string
+    #     input_string = input("Enter the string to type: ")
+
+    #     # while True:
+    #     #     print(f"You entered: {input_string}")
+    #     #     confirmation = input("Do you want to proceed with this string? (y/n): ").lower()
+    #     #     if confirmation == 'y':
+    #     #         break
+    #     #     else:
+    #     #         input_string = input("Please enter the new string to type: ")
+        
+    #     # Convert input string to keyboard clicks
+    #     keyboard_clicks = self.string_to_keyboard_clicks(input_string)
+    #     print(f"Keyboard clicks: {keyboard_clicks}")
+        
+    #     # Check if keyboard points are detected
+    #     # if not self.keyboard_points_3d:
+    #     #     print("Keyboard points not detected. Please ensure the keyboard is in view.")
+    #     # self.get_key_position_3d()
+    #     # print(self.keyboard_points_3d)
+    #     ans = self.calc_3d_pos(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
+    #     # ans = zip(ans.keys(),self.get_transform(ans.values()))
+    #     for key in ans:
+    #         ans[key] = np.array(self.get_transform(ans[key]))
+    #         # print(f"{key} : {ans[key]}")
+    #     self.keyboard_points_3d = ans
+        
+    #     try:
+    #         # Move to home position before starting
+    #         home_pose = self.arm_group.get_current_pose().pose
+            
+    #         self.arm_group.set_pose_target(home_pose)
+    #         self.arm_group.go(wait=True)
+    #         self.arm_group.stop()
+            
+    #         # dummy_pose = Pose()
+    #         # dummy_pose.position.x = 0.0
+    #         # dummy_pose.position.y = -0.65
+    #         # dummy_pose.position.z = 0.3
+    #         # dummy_pose.orientation.w = 1.0
+    #         # self.arm_group.set_pose_target(dummy_pose)
+    #         # success = self.arm_group.go(wait=True)
+    #         # input("Press Enter to continue...")
+            
+    #         # Iterate through keyboard clicks
+    #         # for k in self.keyboard_points:
+    #         #     print(k, self.keyboard_points[k])
+    #         for click in keyboard_clicks:
+    #             # Check if the click exists in keyboard points
+    #             if click not in self.keyboard_points:
+    #                 rospy.logwarn(f"Key {click} not found in keyboard points. Skipping.")
+    #                 continue
+                
+    #             # Get the 3D position for this key
+    #             key_position = self.keyboard_points_3d[click]
+    #             # hover_position =   key_position + np.array([0, -0.1, 0])
+                
+    #             # # Move arm to the key position
+    #             # print(hover_position)
+    #             # success = self.move_arm_to_position(hover_position)
+    #             # print(success)
+    #             # Before moving to a key
+    #             if click not in self.keyboard_points_3d:
+    #                 rospy.logwarn(f"3D position for key {click} not found. Skipping.")
+    #                 continue
+
+    #             # When moving to position
+    #             success = self.move_arm_to_position(key_position)
+    #             if not success:
+    #                 rospy.logerr(f"Failed to move to key {click}. Attempting to continue.")
+    #                 continue  # Skip this key instead of stopping entire operation
+                
+    #             # success = self.move_arm_to_position(key_position)
+    #             if not success:
+    #                 rospy.logerr(f"Failed to move to key {click}")
+    #                 return False
+                
+    #             # Simulate key press (you might want to add actual key press mechanism)
+    #             rospy.sleep(0.5)  # Brief pause to simulate key press
+                
+    #             # Optional: Verify key press
+    #             if not self.check_key_pressed(key_position):
+    #                 rospy.logwarn(f"Key press verification failed for {click}")
+                    
+    #             if success:
+    #                 rospy.loginfo(f"Successfully typed key {click}")
+                
+    #             # success = self.move_arm_to_position(home_pose)
+    #             # succ
+    #             rospy.sleep(0.5)
+                
+    #             self.arm_group.set_pose_target(home_pose)
+    #             self.arm_group.go(wait=True)
+    #             self.arm_group.stop()
+    #             # if success:
+    #             #     rospy.loginfo(f"Successfully returned to home position")
+    #             # else:
+    #             #     rospy.logerr(f"Failed to return to home position")
+    #             #     return False
+                
+                
+            
+    #         # Return to home position after typing
+    #         self.arm_group.set_pose_target(home_pose)
+    #         self.arm_group.go(wait=True)
+    #         self.arm_group.stop()
+            
+    #         return True
+        
+    #     except Exception as e:
+    #         rospy.logerr(f"Error in control flow: {e}")
+    #         return False
+    
     def control_flow(self):
         """
         Execute keyboard clicks by moving the robotic arm to each key's position
-        
-        Args:
-            input_string (str): The string to be typed
         
         Returns:
             bool: Success of the entire typing operation
@@ -403,101 +524,82 @@ class Controller:
         # Prompt user for input string
         input_string = input("Enter the string to type: ")
 
-        # while True:
-        #     print(f"You entered: {input_string}")
-        #     confirmation = input("Do you want to proceed with this string? (y/n): ").lower()
-        #     if confirmation == 'y':
-        #         break
-        #     else:
-        #         input_string = input("Please enter the new string to type: ")
-        
         # Convert input string to keyboard clicks
         keyboard_clicks = self.string_to_keyboard_clicks(input_string)
         print(f"Keyboard clicks: {keyboard_clicks}")
         
-        # Check if keyboard points are detected
-        # if not self.keyboard_points_3d:
-        #     print("Keyboard points not detected. Please ensure the keyboard is in view.")
-        # self.get_key_position_3d()
-        # print(self.keyboard_points_3d)
+        # Calculate 3D positions of keyboard points
         ans = self.calc_3d_pos(self.keypoints_left, self.keypoints_right, self.camera_info_left, self.camera_info_right)
-        # ans = zip(ans.keys(),self.get_transform(ans.values()))
         for key in ans:
             ans[key] = np.array(self.get_transform(ans[key]))
-            # print(f"{key} : {ans[key]}")
         self.keyboard_points_3d = ans
-        
+
         try:
             # Move to home position before starting
-            home_pose = self.arm_group.get_current_pose().pose
-            
-            self.arm_group.set_pose_target(home_pose)
-            self.arm_group.go(wait=True)
-            self.arm_group.stop()
-            
-            # dummy_pose = Pose()
-            # dummy_pose.position.x = 0.0
-            # dummy_pose.position.y = -0.65
-            # dummy_pose.position.z = 0.3
-            # dummy_pose.orientation.w = 1.0
-            # self.arm_group.set_pose_target(dummy_pose)
-            # success = self.arm_group.go(wait=True)
-            # input("Press Enter to continue...")
-            
+            home_position = np.array([
+                self.arm_group.get_current_pose().pose.position.x,
+                self.arm_group.get_current_pose().pose.position.y,
+                self.arm_group.get_current_pose().pose.position.z
+            ])
+
+            if not self.move_arm_to_position(home_position):
+                rospy.logerr("Failed to move to the home position initially.")
+                return False
+
             # Iterate through keyboard clicks
-            # for k in self.keyboard_points:
-            #     print(k, self.keyboard_points[k])
             for click in keyboard_clicks:
                 # Check if the click exists in keyboard points
                 if click not in self.keyboard_points:
                     rospy.logwarn(f"Key {click} not found in keyboard points. Skipping.")
                     continue
-                
+
                 # Get the 3D position for this key
-                key_position = self.keyboard_points_3d[click]
-                # hover_position =   key_position + np.array([0, -0.1, 0])
-                
-                # # Move arm to the key position
-                # print(hover_position)
-                # success = self.move_arm_to_position(hover_position)
-                # print(success)
-                # Before moving to a key
                 if click not in self.keyboard_points_3d:
                     rospy.logwarn(f"3D position for key {click} not found. Skipping.")
                     continue
 
-                # When moving to position
-                success = self.move_arm_to_position(key_position)
-                if not success:
+                key_position = self.keyboard_points_3d[click]+np.array([0,0.1,0.0])
+
+                # # Move arm to the key position
+                # rospy.loginfo(f"Moving to key {click} at position {key_position}.")
+                if not self.move_arm_to_position(key_position):
                     rospy.logerr(f"Failed to move to key {click}. Attempting to continue.")
-                    continue  # Skip this key instead of stopping entire operation
+                else:
+                    rospy.loginfo(f"Successfully moved to key {click}.")
                 
+                # key_position = self.keyboard_points_3d[click]
+                
+                # When moving to position
                 # success = self.move_arm_to_position(key_position)
-                if not success:
-                    rospy.logerr(f"Failed to move to key {click}")
+
+                # Simulate key press
+                rospy.sleep(0.1)  # Brief pause to simulate key press
+                
+                # Move back to the home pose after key press
+                rospy.loginfo("Returning to home position...")
+                if not self.move_arm_to_position(home_position):
+                    rospy.logerr("Failed to return to home position. Stopping the operation.")
                     return False
+                else:
+                    rospy.loginfo("Successfully returned to home position.")
                 
-                # Simulate key press (you might want to add actual key press mechanism)
-                rospy.sleep(0.5)  # Brief pause to simulate key press
-                
-                # Optional: Verify key press
-                if not self.check_key_pressed(key_position):
-                    rospy.logwarn(f"Key press verification failed for {click}")
-                    
-                if success:
-                    rospy.loginfo(f"Successfully typed key {click}")
-            
-            # Return to home position after typing
-            self.arm_group.set_pose_target(home_pose)
-            self.arm_group.go(wait=True)
-            self.arm_group.stop()
-            
-            return True
-        
+                # # Optional: Verify key press  
+                # if not self.check_key_pressed(key_position):
+                #     rospy.logwarn(f"Key press verification failed for {click}")
+
+
+                # Move back to the home pose after key press
+                # rospy.loginfo("Returning to home position...")
+                # if not self.move_arm_to_position(home_position):
+                #     rospy.logerr("Failed to return to home position. Stopping the operation.")
+                #     return False
+
         except Exception as e:
-            rospy.logerr(f"Error in control flow: {e}")
+            rospy.logerr(f"An error occurred: {e}")
             return False
-    
+
+        return True
+
 
 def main():
     controller = Controller(debug=False)
