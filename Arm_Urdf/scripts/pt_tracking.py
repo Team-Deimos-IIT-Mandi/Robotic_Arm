@@ -12,6 +12,7 @@ from control_msgs.msg import JointTrajectoryControllerState
 from trajectory_msgs.msg import JointTrajectory,JointTrajectoryPoint
 from IK_gazebo import model, data, end_effector_frame, q_max,q_min,damping,dt,solve_qp
 import matplotlib.pyplot as plt
+from std_msgs.msg import Float32
 
 # Initialize ROS node
 rospy.init_node('visual_servoing', anonymous=True)
@@ -22,8 +23,8 @@ global q
 q=np.zeros(8)
 errors=[]
 try:
-    listener.waitForTransform("camera_link2", "Link_6", rospy.Time(0), rospy.Duration(1.0))
-    (trans, rot) = listener.lookupTransform("camera_link2", "Link_6", rospy.Time(0))
+    listener.waitForTransform("camera_link1", "Link_6", rospy.Time(0), rospy.Duration(1.0))
+    (trans, rot) = listener.lookupTransform("camera_link1", "Link_6", rospy.Time(0))
     # Convert quaternion to rotation matrix
     Re_c = tf.transformations.quaternion_matrix(rot)[:3,:3]
     de_c=trans
@@ -39,13 +40,13 @@ try:
 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
     print("Could not get transform")
 
-# def callback(msg: JointTrajectoryControllerState):
-#     global q,J
-#     n=msg.actual.positions
-#     for i in range(0,len(n)):
-#         q[i]=n[i]       
+def callback(msg: JointTrajectoryControllerState):
+    global q
+    n=msg.actual.positions
+    for i in range(0,len(n)):
+        q[i]=n[i]       
 
-# rospy.Subscriber("/body_controller/state",JointTrajectoryControllerState,callback)   
+rospy.Subscriber("/body_controller/state",JointTrajectoryControllerState,callback)   
 #  
 pub=rospy.Publisher('/body_controller/command',JointTrajectory,queue_size=10)
 def publish_joint_angles(joint_angles):
@@ -66,7 +67,7 @@ def jaco(ee_b):
         pin.updateFramePlacements(model, data)
         pin.computeJointJacobians(model, data, q)
 
-        J = pin.computeFrameJacobian(model, data, q, end_effector_frame, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
+        J = pin.computeFrameJacobian(model, data, q, end_effector_frame, pin.ReferenceFrame.WORLD)
         # print(J)
         # Get the desired twist from key input
         desired_twist = ee_b.A1
@@ -122,15 +123,20 @@ def int_matrix(s,lam,z):
     
     return np.vstack(Le)
 def plot_err(desired_pos,actual_pos):
-    return np.linalg.norm(np.array(desired_pos) - np.array(actual_pos))
+    return np.linalg.norm(np.array(actual_pos) - np.array(desired_pos))
+
+def depth_callback(msg: Float32):
+    global z
+    z=msg.data
 
 def final_velo(theta,sigma,s):
-    Kwz=0.01
-    Kvz=0.01
-    Kp=0.01
+    global z
+    Kwz=0.11
+    Kvz=0.11
+    Kp=0.1
     area=500
     
-    sd=np.array([[425,478],[315,750],[530,750]])
+    sd=np.array([[395,445],[582,447],[391,664],[585,668]])
     print(s)
     e=s-sd
     e=e.reshape(6,1)
@@ -142,7 +148,6 @@ def final_velo(theta,sigma,s):
     width=800
     fov=1.3962634
     focal_length = width / (2 * np.tan(fov / 2))
-    z=transb[2]-0.12
     print(z)
     Le=int_matrix(s,focal_length,z)
 
@@ -248,7 +253,8 @@ def image_callback(msg):
         rospy.signal_shutdown("User exited")
 
 # Subscribe to the camera topic
-rospy.Subscriber("/camera_gripper/image_raw", Image, image_callback)
+rospy.Subscriber("/camera_gripper_left/image_raw", Image, image_callback)
+rospy.Subscriber("/image_depth",Float32,depth_callback)
 select_point()
 
 # Keep the program running

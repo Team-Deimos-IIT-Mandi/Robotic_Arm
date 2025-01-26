@@ -64,7 +64,7 @@
         <limit lower="-3.17" upper="3.17" effort="50" velocity="5" />
         <dynamics damping="0.5" friction="0.1"/>
     </joint>
-    <joint name="camera_joint1" type="fixed">
+    <!-- <joint name="camera_joint1" type="fixed">
         <axis xyz="0 1 0"/>
         <origin rpy="0 0 -1.57" xyz="0.0 -0.02 0.02"/>
         <parent link="Link_1"/>
@@ -89,7 +89,7 @@
             </geometry>
             <material name="black"/>
         </visual>
-    </link>
+    </link> -->
   <!-- Add camera optical frame with standard computer vision orientation -->
   <!-- <joint name="camera_optical_joint" type="fixed">
     <origin rpy="-1.5707963 0 -1.5707963" xyz="0.0 0.0 0.0"/>
@@ -248,16 +248,42 @@
         <limit lower="-3.17" upper="3.17" effort="50" velocity="5" />
         <dynamics damping="0.5" friction="0.10"/>
     </joint>
-    <joint name="camera_joint2" type="fixed">
+    <joint name="camera_joint1" type="fixed">
         <axis xyz="0 1 0"/>
-        <origin rpy="0 -1.57 1.57" xyz="0.0 -0.082 0.012"/>
+        <origin rpy="0 -1.57 1.57" xyz="-0.03 -0.082 0.012"/>
+        <parent link="Link_6"/>
+        <child link="camera_link1"/>
+    </joint>
+    <link name="camera_link1">
+        <inertial>
+            <mass value="1e-5"/>
+            <origin rpy="0 0 0" xyz="0.0 -0.082 0.012"/>
+            <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+        </inertial>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.025 0.025 0.025"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.025 0.025 0.025"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+<joint name="camera_joint2" type="fixed">
+        <axis xyz="0 1 0"/>
+        <origin rpy="0 -1.57 1.57" xyz="0.03 -0.082 0.012"/>
         <parent link="Link_6"/>
         <child link="camera_link2"/>
     </joint>
     <link name="camera_link2">
         <inertial>
             <mass value="1e-5"/>
-            <origin rpy="0 0 0" xyz="0.0 -0.082 0.012"/>
+            <origin rpy="0 0 0" xyz="0.03 -0.082 0.012"/>
             <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
         </inertial>
         <collision>
@@ -420,7 +446,7 @@
         </plugin>
     </gazebo>
     <gazebo reference="camera_link1">
-        <sensor type="camera" name="camera_base">
+        <sensor type="camera" name="camera_gripper_left">
         <update_rate>30.0</update_rate>
         <camera name="head">
             <horizontal_fov>1.3962634</horizontal_fov>
@@ -445,7 +471,7 @@
         <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
             <alwaysOn>true</alwaysOn>
             <updateRate>0.0</updateRate>
-            <cameraName>camera_base</cameraName>
+            <cameraName>camera_gripper_left</cameraName>
             <imageTopicName>image_raw</imageTopicName>
             <cameraInfoTopicName>camera_info</cameraInfoTopicName>
             <frameName>camera_link1</frameName>
@@ -458,8 +484,8 @@
         </plugin>
         </sensor>
     </gazebo>
-        <gazebo reference="camera_link2">
-        <sensor type="camera" name="camera_gripper">
+    <gazebo reference="camera_link2">
+        <sensor type="camera" name="camera_gripper_right">
         <update_rate>30.0</update_rate>
         <camera name="head">
             <horizontal_fov>1.3962634</horizontal_fov>
@@ -484,7 +510,7 @@
         <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
             <alwaysOn>true</alwaysOn>
             <updateRate>0.0</updateRate>
-            <cameraName>camera_gripper</cameraName>
+            <cameraName>camera_gripper_right</cameraName>
             <imageTopicName>image_raw</imageTopicName>
             <cameraInfoTopicName>camera_info</cameraInfoTopicName>
             <frameName>camera_link2</frameName>
