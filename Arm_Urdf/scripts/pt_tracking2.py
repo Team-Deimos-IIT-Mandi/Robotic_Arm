@@ -240,9 +240,11 @@ class VisualServoing:
             print(f"Point selected: {x}, {y}")
 
     def run(self):
-        self.setup_transforms()
-        self.select_points()
-        rospy.spin()
+        Rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            self.setup_transforms()
+            self.select_points()
+            Rate.sleep()
         cv2.destroyAllWindows()
         plt.plot(self.errors)
         plt.title("Error over Time")
