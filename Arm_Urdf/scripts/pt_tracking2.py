@@ -20,12 +20,15 @@ from IK_gazebo import (
 )
 import matplotlib.pyplot as plt
 
+
 class VisualServoing:
     def __init__(self):
         rospy.init_node("visual_servoing", anonymous=True)
         self.listener = tf.TransformListener()
         self.bridge = CvBridge()
-        self.pub = rospy.Publisher("/body_controller/command", JointTrajectory, queue_size=10)
+        self.pub = rospy.Publisher(
+            "/body_controller/command", JointTrajectory, queue_size=10
+        )
 
         self.q = np.zeros(8)
         self.errors = []
@@ -46,22 +49,42 @@ class VisualServoing:
 
     def setup_transforms(self):
         try:
-            self.listener.waitForTransform("camera_link2", "Link_6", rospy.Time(0), rospy.Duration(1.0))
-            (trans, rot) = self.listener.lookupTransform("camera_link2", "Link_6", rospy.Time(0))
+            self.listener.waitForTransform(
+                "camera_link2", "Link_6", rospy.Time(0), rospy.Duration(1.0)
+            )
+            (trans, rot) = self.listener.lookupTransform(
+                "camera_link2", "Link_6", rospy.Time(0)
+            )
             self.Re_c = tf.transformations.quaternion_matrix(rot)[:3, :3]
             self.de_c = trans
             self.S_de_c = np.matrix(
-                [[0, -self.de_c[2], self.de_c[1]], [self.de_c[2], 0, -self.de_c[0]], [-self.de_c[1], self.de_c[0], 0]]
+                [
+                    [0, -self.de_c[2], self.de_c[1]],
+                    [self.de_c[2], 0, -self.de_c[0]],
+                    [-self.de_c[1], self.de_c[0], 0],
+                ]
             )
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        except (
+            tf.LookupException,
+            tf.ConnectivityException,
+            tf.ExtrapolationException,
+        ):
             rospy.logerr("Could not get transform between camera_link2 and Link_6")
 
         try:
-            self.listener.waitForTransform("Link_6", "base_link", rospy.Time(0), rospy.Duration(1.0))
-            (transb, rotb) = self.listener.lookupTransform("Link_6", "base_link", rospy.Time(0))
+            self.listener.waitForTransform(
+                "Link_6", "base_link", rospy.Time(0), rospy.Duration(1.0)
+            )
+            (transb, rotb) = self.listener.lookupTransform(
+                "Link_6", "base_link", rospy.Time(0)
+            )
             self.Rb_e = tf.transformations.quaternion_matrix(rotb)[:3, :3]
             self.transb = transb
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        except (
+            tf.LookupException,
+            tf.ConnectivityException,
+            tf.ExtrapolationException,
+        ):
             rospy.logerr("Could not get transform between Link_6 and base_link")
 
     def publish_joint_angles(self, joint_angles):
@@ -112,12 +135,20 @@ class VisualServoing:
 
     def compute_ee_velocity_base(self, ee_b, rotation_matrix):
         zero_matrix = np.zeros((3, 3))
-        ee_b = np.block([[rotation_matrix, zero_matrix], [zero_matrix, rotation_matrix]]) @ ee_b
+        ee_b = (
+            np.block([[rotation_matrix, zero_matrix], [zero_matrix, rotation_matrix]])
+            @ ee_b
+        )
         self.compute_jacobian(ee_b)
 
     def compute_ee_velocity(self, camera_velocity, rotation_matrix, skew_matrix):
         zero_matrix = np.zeros((3, 3))
-        m = np.block([[rotation_matrix, skew_matrix @ rotation_matrix], [zero_matrix, rotation_matrix]])
+        m = np.block(
+            [
+                [rotation_matrix, skew_matrix @ rotation_matrix],
+                [zero_matrix, rotation_matrix],
+            ]
+        )
         ee_b = m @ camera_velocity
         self.compute_ee_velocity_base(ee_b, self.Rb_e)
 
@@ -176,21 +207,31 @@ class VisualServoing:
                 x_new, y_new = new.ravel()
                 x_old, y_old = old.ravel()
                 color = self.colors[i % len(self.colors)].tolist()
-                cv2.line(self.mask, (int(x_new), int(y_new)), (int(x_old), int(y_old)), color, 2)
+                cv2.line(
+                    self.mask,
+                    (int(x_new), int(y_new)),
+                    (int(x_old), int(y_old)),
+                    color,
+                    2,
+                )
                 cv2.circle(frame, (int(x_new), int(y_new)), 5, color, -1)
 
             shape_area = self.calculate_area(good_new)
             orientation = self.calculate_orientation(good_new)
 
             if shape_area > 0:
-                self.final_velocity(theta=orientation, sigma=shape_area**0.5, points=good_new)
+                self.final_velocity(
+                    theta=orientation, sigma=shape_area**0.5, points=good_new
+                )
 
             text = (
                 f"Area: {shape_area:.2f}, Angle: {orientation:.2f}"
                 if orientation is not None
                 else f"Area: {shape_area:.2f}"
             )
-            cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(
+                frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
+            )
 
             output = cv2.add(frame, self.mask)
             cv2.imshow("Frame", output)
@@ -226,7 +267,8 @@ class VisualServoing:
         Lxy = np.hstack([Le[:, 0:2], Le[:, 3:5]])
         L_in = np.linalg.pinv(Lxy)
         z_mat = np.dot(Lz, zi_z)
-        post = -(Kp * error) - z_mat
+        s_dot = -(Kp * error)
+        post = s_dot - z_mat
         zi_xy = L_in @ post
         zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
         self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
@@ -240,17 +282,18 @@ class VisualServoing:
             print(f"Point selected: {x}, {y}")
 
     def run(self):
-        Rate = rospy.Rate(10)
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             self.setup_transforms()
             self.select_points()
-            Rate.sleep()
+            rate.sleep()
         cv2.destroyAllWindows()
         plt.plot(self.errors)
         plt.title("Error over Time")
         plt.xlabel("Time Step")
         plt.ylabel("Error (Euclidean Distance)")
         plt.show()
+
 
 if __name__ == "__main__":
     visual_servoing = VisualServoing()
