@@ -13,7 +13,6 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from IK_gazebo import (
     model,
     data,
-    end_effector_frame,
     q_max,
     q_min,
     damping,
@@ -43,6 +42,7 @@ class VisualServoing:
         self.colors = np.random.randint(0, 255, (100, 3))
         self.z=0
         self.s=np.zeros((4,2))
+        self.end_effector_frame = model.getFrameId("camera_optical_link")
 
         self.lk_params = dict(
             winSize=(15, 15),
@@ -132,7 +132,7 @@ class VisualServoing:
         pin.computeJointJacobians(model, data, self.q)
 
         J = pin.computeFrameJacobian(
-            model, data, self.q, end_effector_frame, pin.ReferenceFrame.WORLD
+            model, data, self.q, self.end_effector_frame, pin.ReferenceFrame.LOCAL
         )
         desired_twist = ee_b.A1
 
@@ -197,7 +197,7 @@ class VisualServoing:
         x2, y2 = points[1]
         x3, y3 = points[2]
         x4, y4 = points[3]
-        return (y3-y1)*(x2-x1)
+        return abs((y3-y1)*(x2-x1))
 
     # def calculate_orientation(self, points):
     #     if len(points) < 3:
@@ -300,8 +300,17 @@ class VisualServoing:
             s_dot = -(Kp * error)
             post = s_dot - z_mat
             zi_xy = L_in @ post
-            zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
-            self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
+            if len(self.errors)>1:
+                if np.linalg.norm(error)<self.errors[-1]:
+                    zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+                    self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
+                    # self.errors.append(np.linalg.norm(error))
+            else:
+                zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+                self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
+                # self.errors.append(np.linalg.norm(error))
+            # zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+            # self.compute_jacobian(zi_cam)
             self.errors.append(np.linalg.norm(error))
             print("error ",np.linalg.norm(error))
 

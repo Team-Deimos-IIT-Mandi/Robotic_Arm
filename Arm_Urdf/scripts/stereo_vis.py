@@ -155,12 +155,13 @@ def main():
 
                     # Draw bounding box and label on the left image
                     cv2.rectangle(left_image, (x_left, y_left), (x_left + w_left, y_left + h_left), (0, 255, 0), 2)
+                msg=Float64MultiArray()
+                msg.data=[x_left,y_left,x_left+w_left,y_left,x_left,y_left+h_left,x_left+w_left,y_left+h_left]
+                coordinates.publish(msg)
 
             # Show the left image with annotations
             cv2.imshow("Left Camera - Red Object Detection", left_image)
-            msg=Float64MultiArray()
-            msg.data=[x_left,y_left,x_left+w_left,y_left,x_left,y_left+h_left,x_left+w_left,y_left+h_left]
-            coordinates.publish(msg)
+
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
