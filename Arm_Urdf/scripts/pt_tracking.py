@@ -89,7 +89,7 @@ def jaco(ee_b):
     pin.computeJointJacobians(model, data, q)
 
     J = pin.computeFrameJacobian(
-        model, data, q, end_effector_frame, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED
+        model, data, q, end_effector_frame, pin.ReferenceFrame.WORLD
     )
     # print(J)
     # Get the desired twist from key input
@@ -122,7 +122,6 @@ def jaco(ee_b):
 
 
 def ee_velo_base(e, r):
-    global J
     zero_matrix = np.zeros((3, 3))
     ee_b = np.block([[r, zero_matrix], [zero_matrix, r]]) @ e
     print(ee_b)
