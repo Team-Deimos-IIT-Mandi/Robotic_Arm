@@ -16,7 +16,7 @@ use_rviz)">
   </include>
 
 
-
+<!-- 
   <node name="spawn_cylinder" pkg="gazebo_ros" type="spawn_model" args="
     -urdf
     -model cylinder
@@ -57,7 +57,7 @@ use_rviz)">
 
 
   <param name="drawer_description" command="cat $(find teleop_arm)/urdf/drawer.urdf"/>
-
+ -->
 
 
 
