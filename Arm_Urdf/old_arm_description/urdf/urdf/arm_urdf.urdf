@@ -2,7 +2,7 @@
 <!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
      Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
-<robot name="arm_urdf">
+<robot name="Arm_Urdf/old_arm_description">
     <link name="base_link">
         <inertial>
             <origin xyz="8.53483950180589E-16 1.06858966120171E-15 0.00947651592460926" rpy="0 0 0" />
@@ -12,7 +12,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/base_link.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/base_link.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.650980392156863 0.619607843137255 0.588235294117647 1" />
@@ -21,7 +21,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/base_link.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/base_link.STL" />
             </geometry>
         </collision>
     </link>
@@ -40,7 +40,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_0.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_0.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
@@ -49,7 +49,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_0.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_0.STL" />
             </geometry>
         </collision>
     </link>
@@ -69,7 +69,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_1.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_1.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.666666666666667 0.698039215686274 0.768627450980392 1" />
@@ -78,7 +78,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_1.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_1.STL" />
             </geometry>
         </collision>
     </link>
@@ -98,7 +98,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_2.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_2.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.666666666666667 0.698039215686274 0.768627450980392 1" />
@@ -107,7 +107,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_2.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_2.STL" />
             </geometry>
         </collision>
     </link>
@@ -127,7 +127,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_3.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_3.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.666666666666667 0.698039215686274 0.768627450980392 1" />
@@ -136,7 +136,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_3.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_3.STL" />
             </geometry>
         </collision>
     </link>
@@ -156,7 +156,7 @@
         <visual>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_4.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_4.STL" />
             </geometry>
             <material name="">
                 <color rgba="0.666666666666667 0.698039215686274 0.768627450980392 1" />
@@ -165,7 +165,7 @@
         <collision>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <geometry>
-                <mesh filename="package://arm_urdf/meshes/link_4.STL" />
+                <mesh filename="package://Arm_Urdf/old_arm_description/meshes/link_4.STL" />
             </geometry>
         </collision>
     </link>
