@@ -62,6 +62,14 @@ This repository provides simulation and teleoperation tools for controlling a ro
   ```
   rosrun Arm_Urdf IK_tracking.py
   ```
+## Visual servoing:
+  
+  ```
+  rosrun Arm_Urdf stereo_vis.py
+  ```
+  ```
+  rosrun Arm_Urdf vis_ser.py
+  ```
   
   ## Control old arm
 
