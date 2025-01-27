@@ -90,14 +90,6 @@
             <material name="black"/>
         </visual>
     </link> -->
-  <!-- Add camera optical frame with standard computer vision orientation -->
-  <joint name="camera_optical_joint" type="fixed">
-    <origin rpy="0 -3.14132 -1.57" xyz="0.0 0.0 0.0"/>
-    <parent link="camera_link1"/>
-    <child link="camera_optical_link"/>
-  </joint>
-  <link name="camera_optical_link">
-  </link>
     <link name="Link_2">
         <inertial>
             <origin xyz="0.0039680486454326 0.217484463914853 0.0226240865668204" rpy="0 0 0" />
@@ -448,6 +440,7 @@
     <gazebo reference="camera_link1">
         <sensor type="camera" name="camera_gripper_left">
         <update_rate>30.0</update_rate>
+        <visualize>true</visualize>
         <camera name="head">
             <horizontal_fov>1.3962634</horizontal_fov>
             <image>
@@ -474,7 +467,7 @@
             <cameraName>camera_gripper_left</cameraName>
             <imageTopicName>image_raw</imageTopicName>
             <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-            <frameName>camera_optical_link</frameName>
+            <frameName>camera_link1</frameName>
             <hackBaseline>0.07</hackBaseline>
             <distortionK1>0.0</distortionK1>
             <distortionK2>0.0</distortionK2>
@@ -487,6 +480,7 @@
     <gazebo reference="camera_link2">
         <sensor type="camera" name="camera_gripper_right">
         <update_rate>30.0</update_rate>
+        <visualize>true</visualize>
         <camera name="head">
             <horizontal_fov>1.3962634</horizontal_fov>
             <image>
@@ -513,7 +507,7 @@
             <cameraName>camera_gripper_right</cameraName>
             <imageTopicName>image_raw</imageTopicName>
             <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-            <frameName>camera_optical_link</frameName>
+            <frameName>camera_link2</frameName>
             <hackBaseline>0.07</hackBaseline>
             <distortionK1>0.0</distortionK1>
             <distortionK2>0.0</distortionK2>

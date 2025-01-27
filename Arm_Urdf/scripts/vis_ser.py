@@ -21,7 +21,8 @@ from IK_gazebo import (
 )
 
 import matplotlib.pyplot as plt
-from std_msgs.msg import Float32,Float64MultiArray
+from std_msgs.msg import Float32, Float64MultiArray
+
 
 class VisualServoing:
     def __init__(self):
@@ -40,9 +41,9 @@ class VisualServoing:
         self.points = []
         self.p0 = None
         self.colors = np.random.randint(0, 255, (100, 3))
-        self.z=0
-        self.s=np.zeros((4,2))
-        self.end_effector_frame = model.getFrameId("camera_optical_link")
+        self.z = 0
+        self.s = np.zeros((4, 2))
+        self.end_effector_frame = model.getFrameId("camera_link2")
 
         self.lk_params = dict(
             winSize=(15, 15),
@@ -50,9 +51,11 @@ class VisualServoing:
             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03),
         )
         # rospy.Subscriber("/camera_gripper_left/image_raw", Image, self.process_image)
-        rospy.Subscriber("/body_controller/state",JointTrajectoryControllerState,self.callback) 
-        rospy.Subscriber("/image_depth",Float32,self.depth_callback)
-        rospy.Subscriber("/detected_corners",Float64MultiArray,self.corners)
+        rospy.Subscriber(
+            "/body_controller/state", JointTrajectoryControllerState, self.callback
+        )
+        rospy.Subscriber("/image_depth", Float32, self.depth_callback)
+        rospy.Subscriber("/detected_corners", Float64MultiArray, self.corners)
         self.setup_transforms()
 
     def setup_transforms(self):
@@ -111,19 +114,19 @@ class VisualServoing:
         trajectory_msg.points = [point]
         self.pub.publish(trajectory_msg)
 
-    def callback(self,msg: JointTrajectoryControllerState):
-        n=msg.actual.positions
-        for i in range(0,len(n)):
-            self.q[i]=n[i]  
+    def callback(self, msg: JointTrajectoryControllerState):
+        n = msg.actual.positions
+        for i in range(0, len(n)):
+            self.q[i] = n[i]
         # print("current angles", self.q)
 
-    def depth_callback(self,msg:Float32):
-        if msg.data>0:
-            self.z=msg.data
+    def depth_callback(self, msg: Float32):
+        if msg.data > 0:
+            self.z = msg.data
 
-    def corners(self,msg:Float64MultiArray):
-        for i in range(0,4):
-            self.s[i]=[msg.data[2*i],msg.data[(2*i)+1]]
+    def corners(self, msg: Float64MultiArray):
+        for i in range(0, 4):
+            self.s[i] = [msg.data[2 * i], msg.data[(2 * i) + 1]]
         # print("current coordinates" ,self.s)
 
     def compute_jacobian(self, ee_b):
@@ -183,8 +186,22 @@ class VisualServoing:
             v = points[i][1]
             Lp = np.matrix(
                 [
-                    [-focal_length / depth, 0, u / depth, u * v / focal_length, -(focal_length**2 + u**2) / focal_length, v],
-                    [0, -focal_length / depth, v / depth, (focal_length**2 + v**2) / focal_length, -u * v / focal_length, -u],
+                    [
+                        -focal_length / depth,
+                        0,
+                        u / depth,
+                        u * v / focal_length,
+                        -(focal_length**2 + u**2) / focal_length,
+                        v,
+                    ],
+                    [
+                        0,
+                        -focal_length / depth,
+                        v / depth,
+                        (focal_length**2 + v**2) / focal_length,
+                        -u * v / focal_length,
+                        -u,
+                    ],
                 ]
             )
             Le.append(Lp)
@@ -197,7 +214,7 @@ class VisualServoing:
         x2, y2 = points[1]
         x3, y3 = points[2]
         x4, y4 = points[3]
-        return abs((y3-y1)*(x2-x1))
+        return abs((y3 - y1) * (x2 - x1))
 
     # def calculate_orientation(self, points):
     #     if len(points) < 3:
@@ -268,16 +285,16 @@ class VisualServoing:
     #         rospy.signal_shutdown("User exited")
 
     def final_velocity(self):
-        if self.z>0:
+        if self.z > 0:
             Kwz = 0.01
             Kvz = 0.01
             Kp = 0.01
 
-            points=self.s
-            sigma= (self.calculate_area(points))**0.5
+            points = self.s
+            sigma = (self.calculate_area(points)) ** 0.5
 
-            sd=np.array([[400,500],[575,500],[400,676],[575,676]])
-            area = (self.calculate_area(sd))**0.5
+            sd = np.array([[400, 500], [575, 500], [400, 676], [575, 676]])
+            area = (self.calculate_area(sd)) ** 0.5
 
             error = points - sd
             error = error.reshape(8, 1)
@@ -293,10 +310,10 @@ class VisualServoing:
 
             Le = self.compute_interaction_matrix(points, focal_length, depth)
 
-            Lz = np.hstack([Le[:, 2], Le[:, 5]]) #8x2
-            Lxy = np.hstack([Le[:, 0:2], Le[:, 3:5]]) #8x4
-            L_in = np.linalg.pinv(Lxy) #4x8
-            z_mat = np.dot(Lz, zi_z) #8x1
+            Lz = np.hstack([Le[:, 2], Le[:, 5]])  # 8x2
+            Lxy = np.hstack([Le[:, 0:2], Le[:, 3:5]])  # 8x4
+            L_in = np.linalg.pinv(Lxy)  # 4x8
+            z_mat = np.dot(Lz, zi_z)  # 8x1
             s_dot = -(Kp * error)
             post = s_dot - z_mat
             zi_xy = L_in @ post
@@ -309,10 +326,12 @@ class VisualServoing:
             #     zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
             #     self.compute_ee_velocity(zi_cam, self.Re_c, self.S_de_c)
             #     # self.errors.append(np.linalg.norm(error))
-            zi_cam = np.vstack([zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]])
+            zi_cam = np.vstack(
+                [zi_xy[0], zi_xy[1], zi_z[0], zi_xy[2], zi_xy[3], zi_z[1]]
+            )
             self.compute_jacobian(zi_cam)
             self.errors.append(np.linalg.norm(error))
-            print("error ",np.linalg.norm(error))
+            print("error ", np.linalg.norm(error))
 
     # def select_points(self):
     #     for _ in range(3):
