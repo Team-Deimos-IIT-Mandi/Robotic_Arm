@@ -160,6 +160,9 @@ def main():
                 coordinates.publish(msg)
 
             # Show the left image with annotations
+            pts = np.array([[415, 510], [560, 510], [560, 666], [415, 666]])
+            pts = pts.reshape((-1,1,2))
+            cv2.polylines(left_image,[pts],True,(0,255,255))
             cv2.imshow("Left Camera - Red Object Detection", left_image)
 
 
