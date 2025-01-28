@@ -1,6 +1,6 @@
 <launch>
     <!-- Include any other necessary launch files here -->
-    <include file="$(find arm_moveit_config)/launch/final_arm_launch.launch" />
+    <include file="$(find arm_moveit_config)/launch/keyboard_launch.launch" />
 
     <!-- Spawn the model into Gazebo from the SDF file -->
     <!-- <node name="spawn_keyboard" pkg="gazebo_ros" type="spawn_model" args="-file /home/ub20/rsws/src/autonomous_typing/urdf/Razer_BlackWidow/model.sdf -sdf -model razer_keyboard" output="screen"/> -->
