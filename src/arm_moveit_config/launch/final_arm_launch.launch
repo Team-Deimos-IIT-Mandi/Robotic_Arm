@@ -38,7 +38,7 @@ use_rviz)">
     -model cylinder_container
     -param /cylinder_container_description
     -x -0.4
-    -y 0.4
+    -y -0.4
     -z 0.1
   "/>
 
@@ -51,7 +51,7 @@ use_rviz)">
     -model drawer
     -param /drawer_description
     -x -0.4
-    -y -0.4
+    -y 1.4
     -z 0.1
   "/>
 

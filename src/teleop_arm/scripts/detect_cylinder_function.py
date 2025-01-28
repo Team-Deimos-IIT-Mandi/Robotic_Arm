@@ -3,7 +3,6 @@
 import tf2_ros
 from geometry_msgs.msg import PointStamped
 from tf2_geometry_msgs import do_transform_point
-
 import rospy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
@@ -57,14 +56,10 @@ def detect_red_object(image):
     """Detect a red object in the given image."""
     if image is None:
         rospy.loginfo("Image is None")
-    else:
-        rospy.loginfo("Image is not None")
-        rospy.loginfo(f"Red object detection : {type(image)}")
-        rospy.loginfo(f"Red object detection : {len(image)}")
-    # rospy.loginfo(f"Red object detection : {len(image)}")
+        return None
+
     rospy.loginfo("detect_red_object started")
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    rospy.loginfo(f"Red object detection test2")
     lower_red1 = np.array([0, 100, 100])
     upper_red1 = np.array([10, 255, 255])
     lower_red2 = np.array([160, 100, 100])
@@ -73,9 +68,9 @@ def detect_red_object(image):
     mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
     mask = mask1 + mask2
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
-        rospy.loginfo(f"Red object detection loop")
         if w > 20 and h > 20:  # Filter noise
             rospy.loginfo(f"Red object detected: x={x}, y={y}, w={w}, h={h}")
             return x, y, w, h
@@ -99,12 +94,8 @@ def get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseli
     """Detect a red object and compute its real-world coordinates."""
     rospy.loginfo("get_object_coordinates started")
     
-    
     left_result = detect_red_object(left_image)
     right_result = detect_red_object(right_image)
-    
-    rospy.loginfo(f"get_object_coordinates: {len(left_result)}, {len(right_result)}")
-    
 
     if left_result and right_result:
         x_left, y_left, w_left, h_left = left_result
@@ -115,6 +106,8 @@ def get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseli
             X_camera, Y_camera, Z_camera = compute_coordinates(
                 x_left + w_left // 2, y_left + h_left // 2, depth, cx, cy, focal_length
             )
+            
+            # Convert image frame to camera frame
             X_ros = Z_camera
             Y_ros = -X_camera
             Z_ros = -Y_camera
@@ -124,19 +117,19 @@ def get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseli
             camera_point.point.x = X_ros
             camera_point.point.y = Y_ros
             camera_point.point.z = Z_ros
-            
-            rospy.loginfo("get_object_coordinates")
 
             world_point = transform_point(camera_point, camera_frame)
             if world_point:
                 return world_point.point.x, world_point.point.y, world_point.point.z
-            
+
             return camera_point.point.x, camera_point.point.y, camera_point.point.z
     else:
-        rospy.loginfo("no left and right result")
+        rospy.loginfo("No results from left or right image detection.")
     return None
 
 def main():
+    """Main function to initialize the node and process stereo vision."""
+  
     rospy.init_node("stereo_vision_red_object_detection")
 
     rospy.Subscriber("/camera_gripper_left/image_raw", Image, left_image_callback)
