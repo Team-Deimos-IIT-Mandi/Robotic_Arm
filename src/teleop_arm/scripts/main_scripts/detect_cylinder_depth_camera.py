@@ -13,8 +13,7 @@ import sys
 
 # Initialize global variables
 bridge = CvBridge()
-left_image = None
-right_image = None
+rgb_image = None
 depth_image = None
 stop_program = False
 
@@ -28,7 +27,7 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-def transform_point(camera_point, camera_frame="camera_link1"):
+def transform_point(camera_point, camera_frame="camera_depth_frame"):
     """Transform a point from the camera frame to the world frame."""
     tf_buffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tf_buffer)
@@ -43,22 +42,16 @@ def transform_point(camera_point, camera_frame="camera_link1"):
         rospy.logerr(f"Transform lookup failed: {e}")
         return None
 
-def left_image_callback(msg):
-    """Callback for the left camera."""
-    global left_image
-    left_image = bridge.imgmsg_to_cv2(msg, "bgr8")
-    
+def rgb_image_callback(msg):
+    """Callback for the RGB image from the depth camera."""
+    global rgb_image
+    rgb_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+
 def depth_image_callback(msg):
-    """Callback for the depth image."""
+    """Callback for the depth image from the depth camera."""
     global depth_image
     depth_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
     rospy.loginfo(f"Depth image shape: {depth_image.shape}")
-
-
-def right_image_callback(msg):
-    """Callback for the right camera."""
-    global right_image
-    right_image = bridge.imgmsg_to_cv2(msg, "bgr8")
 
 def detect_red_object(image):
     """Detect a red object in the given image."""
@@ -82,13 +75,6 @@ def detect_red_object(image):
         if w > 20 and h > 20:  # Filter noise
             rospy.loginfo(f"Red object detected: x={x}, y={y}, w={w}, h={h}")
             return x, y, w, h
-    return None
-
-def compute_depth(x_left, x_right, focal_length, baseline):
-    """Compute the depth (Z) using disparity."""
-    disparity = x_left - x_right
-    if disparity > 0:
-        return (focal_length * baseline) / disparity
     return None
 
 def get_depth_from_depth_camera(depth_image, x, y):
@@ -123,33 +109,27 @@ def get_depth_from_depth_camera(depth_image, x, y):
         rospy.logwarn(f"Invalid depth value at x={x}, y={y}: {depth_value}")
         return None
 
-def compute_coordinates(x_left, y_left, depth, cx, cy, focal_length):
+def compute_coordinates(x, y, depth, cx, cy, focal_length):
     """Compute the real-world coordinates (X, Y, Z) in the camera frame."""
-    X_cam = (x_left - cx) * depth / focal_length
-    Y_cam = (y_left - cy) * depth / focal_length
+    X_cam = (x - cx) * depth / focal_length
+    Y_cam = (y - cy) * depth / focal_length
     Z_cam = depth
     return X_cam, Y_cam, Z_cam
 
-def get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseline, camera_frame="camera_link_gripper_left"):
-    """Detect a red object and compute its real-world coordinates."""
+def get_object_coordinates(rgb_image, depth_image, cx, cy, focal_length, camera_frame="camera_depth_frame"):
+    """Detect a red object and compute its real-world coordinates using the depth camera."""
     rospy.loginfo("get_object_coordinates started")
     
-    left_result = detect_red_object(left_image)
-    right_result = detect_red_object(right_image)
+    result = detect_red_object(rgb_image)
+    if result:
+        x, y, w, h = result
+        object_center_x = x + w // 2
+        object_center_y = y + h // 2
+        depth = get_depth_from_depth_camera(depth_image, object_center_x, object_center_y)
 
-    if left_result and right_result:
-        x_left, y_left, w_left, h_left = left_result
-        x_right, y_right, w_right, h_right = right_result
-        
-        object_center_x = x_left + w_left // 2
-        object_center_y = y_left + h_left // 2
-        # depth = get_depth_from_depth_camera(depth_image, object_center_x, object_center_y)
-
-        depth = compute_depth(x_left, x_right, focal_length, baseline)
-        
         if depth:
             X_camera, Y_camera, Z_camera = compute_coordinates(
-                x_left + w_left // 2, y_left + h_left // 2, depth, cx, cy, focal_length
+                object_center_x, object_center_y, depth, cx, cy, focal_length
             )
             
             # Convert image frame to camera frame
@@ -169,27 +149,26 @@ def get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseli
 
             return camera_point.point.x, camera_point.point.y, camera_point.point.z
     else:
-        rospy.loginfo("No results from left or right image detection.")
+        rospy.loginfo("No red object detected.")
     return None
 
 def main():
-    """Main function to initialize the node and process stereo vision."""
-  
-    rospy.init_node("stereo_vision_red_object_detection")
+    """Main function to initialize the node and process RGB and depth images."""
+    rospy.init_node("depth_camera_red_object_detection")
 
-    rospy.Subscriber("/camera_gripper_left/image_raw", Image, left_image_callback)
-    rospy.Subscriber("/camera_gripper_right/image_raw", Image, right_image_callback)
-    rospy.Subscriber("/depth_camera/image_raw", Image, depth_image_callback)
+    # Subscribe to the RGB and depth topics from the depth camera
+    rospy.Subscriber("/rgb/image_raw", Image, rgb_image_callback)
+    rospy.Subscriber("/depth/image_raw", Image, depth_image_callback)
 
-    cx = 400  # Principal point x-coordinate
+    # Camera intrinsic parameters (adjust based on your camera calibration)
+    cx = 400  # Principal point x-coordinate (assuming 640x480 resolution)
     cy = 400  # Principal point y-coordinate
-    focal_length = 500  # Focal length in pixels
-    baseline = 0.16  # Distance between cameras in meters
+    focal_length = 525  # Focal length in pixels (typical value for depth cameras)
 
     rate = rospy.Rate(10)  # 10 Hz
     while not rospy.is_shutdown() and not stop_program:
-        if left_image is not None and right_image is not None:
-            result = get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseline)
+        if rgb_image is not None and depth_image is not None:
+            result = get_object_coordinates(rgb_image, depth_image, cx, cy, focal_length)
             if result:
                 x, y, z = result
                 rospy.loginfo(f"Object in world frame: x: {x:.2f}, y: {y:.2f}, z: {z:.2f}")
