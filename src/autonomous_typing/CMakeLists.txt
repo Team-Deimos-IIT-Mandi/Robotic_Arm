@@ -59,7 +59,7 @@ catkin_install_python(PROGRAMS
   # src/keyboard_typing.py
   # src/keyboard_typing3.py
   # src/yolo_seg.py
-  # src/yolo_seg_save.py
+  src/yolo_key_det.py
   # src/controller.py
   # src/multicontroller.py
   src/autonomous.py

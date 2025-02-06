@@ -122,32 +122,25 @@ class AutonomousTyping:
             
         
     def processing_img(self,img):
-        # TODO : is bkl ko thik karo koi
-        rospy.logdebug("Scanning for keyboard")
-        try:
-            results = self.model(img)
-            highest_confidence = 0
-            best_oriented_box = None
+        img = cv2.resize(img, (640, 640))  # Adjust size as needed
+        results = self.model(img,iou=0.7, conf=0.5)
+        results = results[0]
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                class_id = int(box.cls[0])
+                label = self.class_names[class_id]
+                confidence = box.conf[0]
 
-            # Iterate through detections
-            for mask, box, conf, cls in zip(results.masks.data, results.boxes.xyxy, results.boxes.conf, results.boxes.cls):
-                # Filter for keyboards (change class name/index as needed)
-                class_name = results.names[int(cls)]  # Map class index to class name
-                if class_name == "keyboard":  # Replace "keyboard" with the correct label if needed
-                    # Check if this detection has the highest confidence
-                    if conf > highest_confidence:
-                        highest_confidence = conf
-                        oriented_box, _ = self.get_oriented_box(mask.cpu().numpy())
-                        if oriented_box is not None:
-                            best_oriented_box = oriented_box
+                # Draw bounding box
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                # Draw label and confidence
+                # cv2.putText(img, f'{label} {confidence:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.putText(img, f'{label}', (int((x1+x2)/2),int((y1+y2)/2)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
+                # Publish the image with bounding boxes
             
-            if best_oriented_box is not None:
-                return best_oriented_box
-            else:
-                return None
-            
-        except Exception as e:
-            rospy.logerr(f"Error scanning for keyboard: {e}. Message type: {type(e)}")
             
     def get_oriented_box(mask):
         """

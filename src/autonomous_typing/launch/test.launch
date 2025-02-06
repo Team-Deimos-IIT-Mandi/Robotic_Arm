@@ -27,5 +27,6 @@
           args="-file $(find autonomous_typing)/urdf/keyboard_wall_robot.urdf -urdf -model keyboard_wall_model -x 1.0 -y -1.0 -z 0.5 -R 0 -P 1.57 -Y 0"
           output="screen"/> -->
 
+    <node name="ik_gazebo" pkg="Arm_Urdf" type="IK_gazebo.py" output="screen"/>
 
 </launch>
