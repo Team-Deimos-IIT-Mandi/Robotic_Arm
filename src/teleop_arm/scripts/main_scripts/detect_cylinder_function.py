@@ -88,6 +88,7 @@ def compute_depth(x_left, x_right, focal_length, baseline):
     """Compute the depth (Z) using disparity."""
     disparity = x_left - x_right
     if disparity > 0:
+        rospy.loginfo(f"depth: {(focal_length * baseline) / disparity}")
         return (focal_length * baseline) / disparity
     return None
 
@@ -179,11 +180,11 @@ def main():
 
     rospy.Subscriber("/camera_gripper_left/image_raw", Image, left_image_callback)
     rospy.Subscriber("/camera_gripper_right/image_raw", Image, right_image_callback)
-    rospy.Subscriber("/depth_camera/image_raw", Image, depth_image_callback)
+    # rospy.Subscriber("/depth_camera/image_raw", Image, depth_image_callback)
 
     cx = 400  # Principal point x-coordinate
     cy = 400  # Principal point y-coordinate
-    focal_length = 500  # Focal length in pixels
+    focal_length = 450  # Focal length in pixels
     baseline = 0.16  # Distance between cameras in meters
 
     rate = rospy.Rate(10)  # 10 Hz

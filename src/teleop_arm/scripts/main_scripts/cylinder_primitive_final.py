@@ -9,18 +9,34 @@ from cv_bridge import CvBridge
 import signal
 
 from detect_cylinder_function import get_object_coordinates
+from detect_cylinder_depth_camera import get_object_coordinates_depth_camera
 from sensor_msgs.msg import Image
 
 # Global variables for images
 bridge = CvBridge()
 left_image = None
 right_image = None
+rgb_image = None
+depth_image = None
 
 # Signal handler for clean shutdown
 def signal_handler(sig, frame):
     rospy.loginfo("Shutting down teleoperation node...")
     moveit_commander.roscpp_shutdown()
     sys.exit(0)
+    
+    
+
+def rgb_image_callback(msg):
+    """Callback for the RGB image from the depth camera."""
+    global rgb_image
+    rgb_image = bridge.imgmsg_to_cv2(msg, "bgr8")
+
+def depth_image_callback(msg):
+    """Callback for the depth image from the depth camera."""
+    global depth_image
+    depth_image = bridge.imgmsg_to_cv2(msg, desired_encoding="passthrough")
+    # rospy.loginfo(f"Depth image shape: {depth_image.shape}")
 
 # Callback for the left camera image topic
 def left_image_callback(msg):
@@ -69,6 +85,7 @@ def move_robot_to_target(move_group, target_x, target_y, target_z, tolerance=0.3
             dy=min(step_size, max(-step_size, dy)),
             dz=min(step_size, max(-step_size, dz)),
         )
+
 
 # Function to move the robot by a small step with retry logic
 def move_robot(move_group, dx=0.0, dy=0.0, dz=0.0, max_retries=5, tolerance=0.01):
@@ -125,6 +142,7 @@ def move_robot(move_group, dx=0.0, dy=0.0, dz=0.0, max_retries=5, tolerance=0.01
 
         rospy.sleep(1)
 
+
 # Main function to initialize the ROS node and handle keyboard inputs
 def main():
     # Set up signal handling for clean shutdown
@@ -139,6 +157,8 @@ def main():
     # Subscribe to stereo camera image topics
     rospy.Subscriber("/camera_gripper_left/image_raw", Image, left_image_callback)
     rospy.Subscriber("/camera_gripper_right/image_raw", Image, right_image_callback)
+    rospy.Subscriber("/rgb/image_raw", Image, rgb_image_callback)
+    rospy.Subscriber("/depth/image_raw", Image, depth_image_callback)
 
     rospy.loginfo("""
     Press 't' to automatically move towards the detected object.
@@ -147,7 +167,7 @@ def main():
     # Parameters for object detection and movement
     cx = 400  # Principal point x-coordinate
     cy = 400  # Principal point y-coordinate
-    focal_length = 500
+    focal_length = 450
     baseline = 0.16
     tolerance = 0.2
 
@@ -157,7 +177,8 @@ def main():
             if key.char == 't':
                 rospy.loginfo("Auto-moving towards the object...")
                 if left_image is not None and right_image is not None:
-                    result = get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseline)
+                    # result = get_object_coordinates(left_image, right_image, cx, cy, focal_length, baseline)
+                    result = get_object_coordinates_depth_camera(rgb_image, depth_image, cx, cy, focal_length)
                     if result:
                         target_x, target_y, target_z = result
                         rospy.loginfo(f"Moving towards object at: x={target_x}, y={target_y}, z={target_z}")

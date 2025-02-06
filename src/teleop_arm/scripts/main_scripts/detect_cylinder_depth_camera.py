@@ -102,7 +102,7 @@ def get_depth_from_depth_camera(depth_image, x, y):
     # Get the depth value at the specified pixel
     depth_value = depth_image[y, x]
 
-    # Check if the depth value is valid (non-zero and finite)
+    # Check if the depth value is valid (non-zero and finite) 
     if depth_value > 0 and np.isfinite(depth_value):
         return depth_value
     else:
@@ -111,20 +111,23 @@ def get_depth_from_depth_camera(depth_image, x, y):
 
 def compute_coordinates(x, y, depth, cx, cy, focal_length):
     """Compute the real-world coordinates (X, Y, Z) in the camera frame."""
-    X_cam = (x - cx) * depth / focal_length
+    X_cam = (x - cx) * depth / focal_length  # Add offset for camera mount
     Y_cam = (y - cy) * depth / focal_length
     Z_cam = depth
     return X_cam, Y_cam, Z_cam
 
-def get_object_coordinates(rgb_image, depth_image, cx, cy, focal_length, camera_frame="camera_depth_frame"):
+def get_object_coordinates_depth_camera(rgb_image, depth_image, cx, cy, focal_length, camera_frame="realsense_camera_link"):
     """Detect a red object and compute its real-world coordinates using the depth camera."""
-    rospy.loginfo("get_object_coordinates started")
+    rospy.loginfo("get_object_coordinates_depth_camera started")
     
     result = detect_red_object(rgb_image)
     if result:
         x, y, w, h = result
+        
         object_center_x = x + w // 2
+        
         object_center_y = y + h // 2
+        
         depth = get_depth_from_depth_camera(depth_image, object_center_x, object_center_y)
 
         if depth:
@@ -163,12 +166,12 @@ def main():
     # Camera intrinsic parameters (adjust based on your camera calibration)
     cx = 400  # Principal point x-coordinate (assuming 640x480 resolution)
     cy = 400  # Principal point y-coordinate
-    focal_length = 525  # Focal length in pixels (typical value for depth cameras)
+    focal_length = 450  # Focal length in pixels (typical value for depth cameras)
 
     rate = rospy.Rate(10)  # 10 Hz
     while not rospy.is_shutdown() and not stop_program:
         if rgb_image is not None and depth_image is not None:
-            result = get_object_coordinates(rgb_image, depth_image, cx, cy, focal_length)
+            result = get_object_coordinates_depth_camera(rgb_image, depth_image, cx, cy, focal_length)
             if result:
                 x, y, z = result
                 rospy.loginfo(f"Object in world frame: x: {x:.2f}, y: {y:.2f}, z: {z:.2f}")

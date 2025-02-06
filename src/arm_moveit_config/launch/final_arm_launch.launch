@@ -7,6 +7,7 @@
   <include file = "$(find arm_moveit_config)/launch/move_group.launch" />
 
 
+
   <!-- Run Rviz and load the default configuration to see the state of the move_group node -->
   <arg name="use_rviz" default="true" />
 
@@ -25,8 +26,8 @@ use_rviz)">
     -y -0.6
     -z 0.1
 
-
   "/>
+
 
 
   <param name="cylinder_description" command="cat $(find teleop_arm)/urdf/cylinder.urdf"/>
@@ -41,6 +42,7 @@ use_rviz)">
     -y -0.4
     -z 0.1
   "/>
+
 
 
   <param name="cylinder_container_description" command="cat $(find teleop_arm)/urdf/cylinder_container.urdf"/>
