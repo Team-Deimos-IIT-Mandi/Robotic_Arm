@@ -64,6 +64,7 @@ catkin_install_python(PROGRAMS
   # src/multicontroller.py
   src/autonomous.py
   src/final.py
+  src/kinova_autonom.py
   # src/yolo_det.py
 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

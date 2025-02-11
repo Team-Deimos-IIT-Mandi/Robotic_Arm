@@ -1,6 +1,8 @@
 
 #!/usr/bin/env python3
 
+import moveit_msgs.msg
+import geometry_msgs.msg
 import rospy
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
@@ -14,11 +16,18 @@ import tf2_geometry_msgs
 import tf2_ros
 from sklearn.linear_model import LinearRegression
 from scipy.spatial.distance import cdist
-
+import logging
+import moveit_commander 
+from tf.transformations import quaternion_from_euler
+import sys
 
 class Detector:
     def __init__(self):
         self.model = YOLO('trained_yolov8n.pt')
+        rospy.sleep(1)
+        os.environ['YOLO_LOG_LEVEL'] = 'error'
+        logging.getLogger("ultralytics").setLevel(logging.ERROR)
+
         self.camera_input_left = rospy.get_param('~input_topic_left', '/camera_gripper_left/image_raw')
         self.camera_info_left = rospy.get_param('~camera_info_topic', '/camera_gripper_left/camera_info')
         self.camera_input_right = rospy.get_param('~input_topic_right', '/camera_gripper_right/image_raw')
@@ -37,7 +46,8 @@ class Detector:
         self.bridge = CvBridge()
         # self.subscriber = rospy.Subscriber(self.camera_topic, Image, self.image_callback)
         # self.camera_info_sub = rospy.Subscriber(self.camera_info_topic, CameraInfo, self.camera_info_callback)
-        self.publisher = rospy.Publisher('yolo_output', Image, queue_size=10)
+        self.publisher_left = rospy.Publisher('yoloL', Image, queue_size=10)
+        self.publisher_right = rospy.Publisher('yoloR', Image, queue_size=10)
         self.publisher_depth = rospy.Publisher('stereo', Image, queue_size=10)
         self.class_names = [
             'accent', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'minus', 'plus', 'del', 'tab', 'q', 'w', 'e', 'r', 't', 
@@ -82,18 +92,20 @@ class Detector:
     def image_callback_left(self,msg):
         try:
             self.img_left, self.resultL = self.image_callback(msg)
+            self.publisher_left.publish(self.bridge.cv2_to_imgmsg(self.img_left, encoding='bgr8'))
         except Exception as e:
             rospy.logerr(f"Dum as fk img_left : {e}")
         
     def image_callback_right(self,msg):
         try:
             self.img_right, self.resultR = self.image_callback(msg)
+            self.publisher_right.publish(self.bridge.cv2_to_imgmsg(self.img_right, encoding='bgr8'))
         except Exception as e:
             rospy.logerr(f"Dum as fk img_right : {e}")
         
     def image_callback(self, msg):
         img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        img_copy = img.copy()
+        # img_copy = img.copy()
         img = cv2.resize(img, (640, 640))  # Adjust size as needed
         results = self.model(img,iou=0.7, conf=0.5)
         results = results[0]
@@ -112,8 +124,7 @@ class Detector:
                 # cv2.putText(img, f'{label} {confidence:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 cv2.putText(img, f'{label}', (int((x1+x2)/2),int((y1+y2)/2)), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
                 # Publish the image with bounding boxes
-        self.publisher.publish(self.bridge.cv2_to_imgmsg(img, encoding='bgr8'))
-        return img_copy,results
+        return img,results
     
     def _get_points(self, results):
         points = {key: None for key in self.class_names}  # Initialize all keys with None
@@ -128,7 +139,7 @@ class Detector:
                 confidence = float(box.conf[0])  # Convert to float for comparison
 
                 # Update only if confidence is higher
-                if points[label] is None or confidence > confidences[label]:
+                if points[label] is None or confidence >= confidences[label]:
                     points[label] = (int((x1 + x2) / 2), int((y1 + y2) / 2))
                     confidences[label] = confidence  # Store max confidence for this key
                     
@@ -229,9 +240,10 @@ class Detector:
             if points_left_dict[label] is None or points_right_dict[label] is None:
                 points_3D_dict[label] = None
                 continue  # Skip if either left or right point is missing
-
+                
             xL, yL = points_left_dict[label]
             xR, _ = points_right_dict[label]  # Only xR is needed for disparity
+            
             
             disparity = np.array([[xL - xR]], dtype=np.float32)  # Shape (1,1)
 
@@ -249,13 +261,13 @@ class Detector:
         # points_3D_dict = self._corrected_points(points_3D_dict)
 
         return points_3D_dict  # Returns a dictionary of {label: (X, Y, Z)}
-
-    # TODO: Develop a more robust method for correcting detected key positions
+    
     def _corrected_points(self, points):
         """
-        Correct detected keyboard key positions maintaining the points dictionary structure.
+        Corrects detected keyboard key positions maintaining the points dictionary structure.
+        Ensures all points lie in the same plane before correction.
         Args:
-            points: Dictionary mapping key names to (x, y) coordinates or None
+            points: Dictionary mapping key names to (x, y, z) coordinates or None
         Returns:
             Dictionary with corrected key positions
         """
@@ -263,36 +275,41 @@ class Detector:
         valid_points = {k: np.array(v) for k, v in points.items() if v is not None and k.lower() in [
             item.lower() for sublist in self.keyboard_layout.values() for item in sublist
         ]}
-        
+
         if len(valid_points) < 4:  # Need minimum points for meaningful correction
             return points
-            
-        # Get coordinates array for processing
+
+        # Get 3D coordinates and project them to the same plane
         coords = np.array(list(valid_points.values()))
         keys = list(valid_points.keys())
-        
+
         try:
-            # Find keyboard orientation
+            projected_coords, normal = self._get_plane(coords)
+
+            # Find keyboard orientation in 2D (X, Y plane)
             reg = LinearRegression()
-            X = coords[:, 0].reshape(-1, 1)
-            y = coords[:, 1]
+            X = projected_coords[:, 0].reshape(-1, 1)
+            y = projected_coords[:, 1]
             reg.fit(X, y)
             angle = np.arctan(reg.coef_[0])
-            
-            # Rotate points to normalize orientation
-            rotation_matrix = np.array([
-                [np.cos(angle), -np.sin(angle)],
-                [np.sin(angle), np.cos(angle)]
+
+            # Create a 3D rotation matrix around the normal vector
+            rotation_matrix_3D = np.array([
+                [np.cos(angle), -np.sin(angle), 0],
+                [np.sin(angle), np.cos(angle), 0],
+                [0, 0, 1]  # Keep the Z-axis unchanged
             ])
-            rotated_coords = np.dot(coords, rotation_matrix)
-            
+
+            # Apply rotation to align the keyboard
+            rotated_coords = np.dot(projected_coords, rotation_matrix_3D)
+
             # Group into rows based on y-coordinates
             y_coords = rotated_coords[:, 1]
             sorted_y_indices = np.argsort(y_coords)
             row_clusters = []
             current_cluster = [sorted_y_indices[0]]
-            
-            # Cluster keys into rows using adaptive threshold
+
+            # Adaptive row clustering based on Y spacing
             y_threshold = np.std(y_coords) * 0.5
             for i in range(1, len(sorted_y_indices)):
                 if abs(y_coords[sorted_y_indices[i]] - y_coords[sorted_y_indices[i-1]]) < y_threshold:
@@ -301,13 +318,12 @@ class Detector:
                     row_clusters.append(current_cluster)
                     current_cluster = [sorted_y_indices[i]]
             row_clusters.append(current_cluster)
-            
+
             # Process each row
             corrected_points = points.copy()
             for row_cluster in row_clusters:
-                # Get keys in this row
                 row_keys = [keys[i] for i in row_cluster]
-                
+
                 # Find matching keyboard row
                 matched_row = None
                 max_overlap = 0
@@ -316,92 +332,81 @@ class Detector:
                     if overlap > max_overlap:
                         max_overlap = overlap
                         matched_row = expected_row
-                
+
                 if matched_row and max_overlap >= 3:  # Require at least 3 matching keys
-                    # Get x-coordinates for this row
                     row_x_coords = rotated_coords[row_cluster][:, 0]
                     sorted_x_indices = np.argsort(row_x_coords)
-                    
+
                     # Calculate average spacing
                     avg_spacing = np.mean(np.diff(row_x_coords[sorted_x_indices]))
-                    
+
                     # Correct positions for detected keys
                     for i, key in enumerate(matched_row):
                         key_lower = key.lower()
-                        # Find the key in row_keys (case-insensitive)
                         matching_keys = [k for k in row_keys if k.lower() == key_lower]
-                        
+
                         if matching_keys:
-                            # Use the first matching key's position
                             idx = row_keys.index(matching_keys[0])
                             base_point = coords[row_cluster[idx]]
                         else:
-                            # Interpolate position for missing keys
                             left_keys = [k for k in row_keys if k.lower() in [x.lower() for x in matched_row[:i]]]
                             right_keys = [k for k in row_keys if k.lower() in [x.lower() for x in matched_row[i+1:]]]
-                            
+
                             if left_keys and right_keys:
-                                # Interpolate between existing keys
                                 left_idx = row_keys.index(left_keys[-1])
                                 right_idx = row_keys.index(right_keys[0])
                                 left_point = coords[row_cluster[left_idx]]
                                 right_point = coords[row_cluster[right_idx]]
                                 ratio = (i - matched_row.index(left_keys[-1].upper())) / \
-                                    (matched_row.index(right_keys[0].upper()) - matched_row.index(left_keys[-1].upper()))
+                                        (matched_row.index(right_keys[0].upper()) - matched_row.index(left_keys[-1].upper()))
                                 base_point = left_point + ratio * (right_point - left_point)
                             elif left_keys:
-                                # Extend from left
                                 left_idx = row_keys.index(left_keys[-1])
-                                base_point = coords[row_cluster[left_idx]] + \
-                                        np.array([avg_spacing, 0])
+                                base_point = coords[row_cluster[left_idx]] + np.array([avg_spacing, 0, 0])
                             elif right_keys:
-                                # Extend from right
                                 right_idx = row_keys.index(right_keys[0])
-                                base_point = coords[row_cluster[right_idx]] - \
-                                        np.array([avg_spacing, 0])
+                                base_point = coords[row_cluster[right_idx]] - np.array([avg_spacing, 0, 0])
                             else:
                                 continue
-                        
+
                         # Update position in corrected_points if key exists in class_names
                         key_variations = [key_lower, key.upper()]
                         for key_var in key_variations:
                             if key_var in self.class_names:
                                 corrected_points[key_var] = tuple(map(int, base_point))
                                 break
-            
+
             return corrected_points
-    
+
         except Exception as e:
             rospy.logerr(f"Error in _corrected_points: {e}")
             return points  # Return original points if correction fails
-    
     def _get_plane(self, points):
         """
-        Fit a plane to the given 3D points.
+        Fits a plane to the given 3D points using least squares.
+        Projects all points onto the plane to ensure alignment.
         Args:
-            points: Nx3 array of 3D points
+            points: Nx3 numpy array of 3D points
         Returns:
-            Tuple of plane normal and distance
+            projected_points: Nx3 numpy array of points projected onto the plane
+            normal: Normal vector of the fitted plane
         """
-        # Compute centroid
-        centroid = np.mean(points, axis=0)
+        # Extract X, Y, Z coordinates
+        X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
         
-        # Compute covariance matrix
-        cov = np.cov(points, rowvar=False)
-        
-        # Compute eigenvalues and eigenvectors
-        eigvals, eigvecs = np.linalg.eig(cov)
-        
-        # Find the smallest eigenvalue
-        min_eigval_idx = np.argmin(eigvals)
-        
-        # Extract the corresponding eigenvector
-        normal = eigvecs[:, min_eigval_idx]
-        
-        # Compute distance from origin
-        distance = -np.dot(normal, centroid)
-        
-        return normal, distance
+        # Fit a plane: Z = aX + bY + c
+        A = np.c_[X, Y, np.ones(len(points))]
+        coeffs, _, _, _ = np.linalg.lstsq(A, Z, rcond=None)  # Solve least squares
+        a, b, c = coeffs
+
+        # Normal vector of the plane
+        normal = np.array([a, b, -1])
+        normal /= np.linalg.norm(normal)  # Normalize
+
+        # Project points onto the plane
+        projected_points = points - (np.dot(points, normal)[:, None] * normal)
+
+        return projected_points, normal
     
     
     def depth_map(self):
@@ -453,6 +458,39 @@ class Detector:
         # Publish the disparity image
         self.publisher_depth.publish(self.bridge.cv2_to_imgmsg(disparity, encoding='mono8'))
         
+    def display_points_3D(self,points_3D_dict):
+        print(f"{'Label':<10} {'X':<10} {'Y':<10} {'Z':<10}")
+        print("=" * 40)
+        for label, value in points_3D_dict.items():
+            if value is None:
+                print(f"{label:<10} {'None':<10} {'None':<10} {'None':<10}")
+                continue
+            print(f"{label:<10} {value[0]:<10.3f} {value[1]:<10.3f} {value[2]:<10.3f}")
+          
+    def get_transform(self, point):
+        """Transform a point from the camera frame to the world frame."""
+        tf_buffer = tf2_ros.Buffer()
+        listener = tf2_ros.TransformListener(tf_buffer)
+
+        try:
+            camera_point = PointStamped()
+            camera_point.header.frame_id = self.camera_frame_left
+            camera_point.point.x = point[2]
+            camera_point.point.y = -point[0]
+            camera_point.point.z = -point[1]
+            # Wait for the transform to be available
+            transform = tf_buffer.lookup_transform("world", self.camera_frame_left, rospy.Time(0), rospy.Duration(1.0))
+            # Transform the point
+            world_point = do_transform_point(camera_point, transform)
+            return [world_point.point.x,world_point.point.y,world_point.point.z]
+        except tf2_ros.LookupException as e:
+            rospy.logerr(f"Transform lookup failed: {e}")
+            return None      
+      
+    def control_flow(self):
+        pass
+    
+    
         
 def main():
     rospy.init_node('yolo_detector', anonymous=True)
@@ -465,7 +503,9 @@ def main():
             continue
         
         rospy.loginfo("Images received")
-        detector.depth_map()
+        pt = detector.depth_of_points()
+        detector.display_points_3D(pt)
+        
         rospy.sleep(0.1)
         
     rospy.spin()

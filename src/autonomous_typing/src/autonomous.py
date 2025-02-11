@@ -287,65 +287,119 @@ class Controller:
     #     # rospy.loginfo("Published annotated image.")
         
 
-    
-    def move_arm_to_position(self, position_3d, tolerance=0.02):
+
+    def move_arm_to_position(self, position_3d, tolerance=0.001):
         """
-        Move the robotic arm to the calculated 3D position with incremental steps.
+        Move the robotic arm to the calculated 3D position with 1mm precision efficiently.
         
         Args:
-            position_3d (np.array): Target 3D position 
-            tolerance (float): Acceptable distance to target position
+            position_3d (np.array): Target 3D position [x, y, z]
+            tolerance (float): Acceptable distance to target position (default 1mm)
         
         Returns:
             bool: Success of movement
         """
         try:
-            # Get current pose
             current_pose = self.arm_group.get_current_pose().pose
-            
-            # Compute the distance to the goal
+
+            # Compute movement vector
             dx = position_3d[0] - current_pose.position.x
             dy = position_3d[1] - current_pose.position.y
             dz = position_3d[2] - current_pose.position.z
             distance = np.linalg.norm([dx, dy, dz])
 
-            # Move in small steps until within tolerance
-            step_size = 0.01
-            while distance > tolerance and not rospy.is_shutdown():
-                # Calculate step sizes proportional to direction
-                step_dx = dx * min(step_size / distance, 1.0)
-                step_dy = dy * min(step_size / distance, 1.0)
-                step_dz = dz * min(step_size / distance, 1.0)
+            if distance < tolerance:
+                rospy.loginfo("Already within tolerance.")
+                return True  # Already at target
 
-                # Create target pose
+            # Number of steps required (1mm increments)
+            num_steps = int(np.ceil(distance / 0.001))
+            step_vector = np.array([dx, dy, dz]) / distance * 0.001  # 1mm step direction
+
+            waypoints = []
+            for i in range(1, num_steps + 1):
                 target_pose = Pose()
-                target_pose.position.x = current_pose.position.x + step_dx
-                target_pose.position.y = current_pose.position.y + step_dy
-                target_pose.position.z = current_pose.position.z + step_dz
-                target_pose.orientation = current_pose.orientation
+                target_pose.position.x = current_pose.position.x + step_vector[0] * i
+                target_pose.position.y = current_pose.position.y + step_vector[1] * i
+                target_pose.position.z = current_pose.position.z + step_vector[2] * i
+                target_pose.orientation = current_pose.orientation  # Maintain orientation
+                waypoints.append(target_pose)
 
-                # Set and execute target pose
-                self.arm_group.set_pose_target(target_pose)
-                success = self.arm_group.go(wait=True)
-                self.arm_group.stop()
-                
-                if not success:
-                    rospy.logerr("Failed to move incrementally")
-                    return False
+            # Plan and execute full trajectory in one go
+            (plan, fraction) = self.arm_group.compute_cartesian_path(waypoints, eef_step=0.001, jump_threshold=0.0)
 
-                # Update current pose and recalculate distance
-                current_pose = self.arm_group.get_current_pose().pose
-                dx = position_3d[0] - current_pose.position.x
-                dy = position_3d[1] - current_pose.position.y
-                dz = position_3d[2] - current_pose.position.z
-                distance = np.linalg.norm([dx, dy, dz])
+            if fraction < 0.99:  # Ensure most of the path is planned
+                rospy.logerr("Path planning failed, only %.2f%% completed" % (fraction * 100))
+                return False
 
+            self.arm_group.execute(plan, wait=True)
+            self.arm_group.stop()
             self.arm_group.clear_pose_targets()
+
             return True
 
         except Exception as e:
             rospy.logerr(f"Error in move_arm_to_position: {e}")
             return False
+
+    # def move_arm_to_position(self, position_3d, tolerance=0.02):
+    #     """
+    #     Move the robotic arm to the calculated 3D position with incremental steps.
+        
+    #     Args:
+    #         position_3d (np.array): Target 3D position 
+    #         tolerance (float): Acceptable distance to target position
+        
+    #     Returns:
+    #         bool: Success of movement
+    #     """
+    #     try:
+    #         # Get current pose
+    #         current_pose = self.arm_group.get_current_pose().pose
+            
+    #         # Compute the distance to the goal
+    #         dx = position_3d[0] - current_pose.position.x
+    #         dy = position_3d[1] - current_pose.position.y
+    #         dz = position_3d[2] - current_pose.position.z
+    #         distance = np.linalg.norm([dx, dy, dz])
+
+    #         # Move in small steps until within tolerance
+    #         step_size = 0.01
+    #         while distance > tolerance and not rospy.is_shutdown():
+    #             # Calculate step sizes proportional to direction
+    #             step_dx = dx * min(step_size / distance, 1.0)
+    #             step_dy = dy * min(step_size / distance, 1.0)
+    #             step_dz = dz * min(step_size / distance, 1.0)
+
+    #             # Create target pose
+    #             target_pose = Pose()
+    #             target_pose.position.x = current_pose.position.x + step_dx
+    #             target_pose.position.y = current_pose.position.y + step_dy
+    #             target_pose.position.z = current_pose.position.z + step_dz
+    #             target_pose.orientation = current_pose.orientation
+
+    #             # Set and execute target pose
+    #             self.arm_group.set_pose_target(target_pose)
+    #             success = self.arm_group.go(wait=True)
+    #             self.arm_group.stop()
+                
+    #             if not success:
+    #                 rospy.logerr("Failed to move incrementally")
+    #                 return False
+
+    #             # Update current pose and recalculate distance
+    #             current_pose = self.arm_group.get_current_pose().pose
+    #             dx = position_3d[0] - current_pose.position.x
+    #             dy = position_3d[1] - current_pose.position.y
+    #             dz = position_3d[2] - current_pose.position.z
+    #             distance = np.linalg.norm([dx, dy, dz])
+
+    #         self.arm_group.clear_pose_targets()
+    #         return True
+
+    #     except Exception as e:
+    #         rospy.logerr(f"Error in move_arm_to_position: {e}")
+    #         return False
 
     def check_key_pressed(self, position_3d):
         """Verify if the key is pressed correctly."""
