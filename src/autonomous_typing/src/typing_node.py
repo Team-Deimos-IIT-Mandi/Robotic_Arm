@@ -2,6 +2,7 @@
 
 import rospy
 import moveit_commander
+from moveit_commander import MoveGroupCommander, RobotCommander, PlanningSceneInterface
 from geometry_msgs.msg import PoseArray, Pose
 
 class AutonomousTyping:
@@ -12,7 +13,7 @@ class AutonomousTyping:
         moveit_commander.roscpp_initialize([])
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
-        self.group = moveit_commander.MoveGroupCommander("manipulator")
+        self.group = moveit_commander.MoveGroupCommander("body")
         
         # Subscribe to detected key positions
         rospy.Subscriber("/keyboard_key_poses", PoseArray, self.keyboard_callback)
@@ -30,8 +31,11 @@ class AutonomousTyping:
 
     def keyboard_callback(self, msg):
         """Update detected keyboard key positions."""
-        self.keyboard_keys = {i: pose for i, pose in enumerate(msg.poses)}
-        rospy.loginfo("Updated key positions")
+        try:
+            self.keyboard_keys = msg.poses
+            rospy.logdebug("Updated key positions")
+        except Exception as e:
+            rospy.logerr(f"Error updating key positions: {e}")
 
     def move_to_hover(self, key_pose):
         """Move to hover position above the key."""
