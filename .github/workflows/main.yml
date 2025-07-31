@@ -19,14 +19,29 @@ jobs:
       - name: "Build Docker image for testing"
         run: docker build -t my-robot-image:test .
 
+      - name: "Debug: List available ROS packages"
+        run: |
+          echo "=== Checking container startup ==="
+          docker run --rm my-robot-image:test echo "Container started successfully"
+          
+          echo "=== Available ROS packages ==="
+          docker run --rm my-robot-image:test bash -c "source /opt/ros/noetic/setup.bash && source /root/ros_ws/devel/setup.bash && rospack list | grep -E '(arm|urdf|robot)'"
+
       - name: "Run Sanity Checks on Container"
         run: |
           # Test that the container can run and find a core ROS package
+          echo "=== Testing core ROS package ==="
           docker run --rm my-robot-image:test rospack find roscpp
 
-          # Test that it can find a package from your source code
-          # IMPORTANT: Rename 'arm_urdf' if your package name is different
-          docker run --rm my-robot-image:test rospack find Arm_Urdf
+          # Test workspace sourcing
+          echo "=== Testing workspace setup ==="
+          docker run --rm my-robot-image:test bash -c "source /opt/ros/noetic/setup.bash && source /root/ros_ws/devel/setup.bash && echo 'ROS_PACKAGE_PATH:' && echo \$ROS_PACKAGE_PATH"
+
+          # Find your actual package name (replace 'your_package_name' with actual name)
+          echo "=== Testing your package ==="
+          # IMPORTANT: Replace 'your_package_name' with your actual package name from src folder
+          # Based on your folder structure, it might be something like 'robotic_arm' or check your package.xml
+          # docker run --rm my-robot-image:test rospack find arm_moveit_config
 
   push-to-registry:
     needs: build-and-test
@@ -53,4 +68,4 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: ${{ steps.meta.outputs.labels }} 
