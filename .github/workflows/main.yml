@@ -1,56 +1,15 @@
-name: "🤖 Build, Test, and Deploy ROS Container"
+name: "🤖 Debug ROS Container Build"
 
 on:
   push:
-    branches: [ "main", "develop" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop", "feature/anish" ] # Trigger on your branch
 
 jobs:
-  build-and-test:
+  debug-build:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository code"
         uses: actions/checkout@v4
 
-      - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@v3
-
-      - name: "Build Docker image for testing"
-        run: docker build -t my-robot-image:test .
-
-      - name: "Run Sanity Checks on Container"
-        run: |
-          # Test that the container can run and find a core ROS package
-          docker run --rm my-robot-image:test rospack find roscpp
-
-          # --- FIX: Replaced placeholder with a real package name ---
-          # Test that it can find a package from your source code
-          docker run --rm my-robot-image:test rospack find arm_urdf
-
-  push-to-registry:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: "Checkout repository code"
-        uses: actions/checkout@v4
-      - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@v3
-      - name: "🔒 Login to Docker Hub"
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: "🏷️ Set up Docker metadata"
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ak9685/robotic-arm-project
-      - name: "Build and push Docker image"
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: "Attempt to build the Docker image"
+        run: docker build -t debug-image .
