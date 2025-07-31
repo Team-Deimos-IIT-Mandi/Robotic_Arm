@@ -34,6 +34,7 @@ __pycache__/
 # Log files
 *.log
 logs/
+build-logs/
 
 # Temporary files
 tmp/
@@ -47,9 +48,16 @@ docker-compose*.yml
 
 # Scripts that are host-specific
 launch_container.sh
+*.sh
 
 # Large files that shouldn't be in container
 *.bag
 *.mp4
 *.avi
 *.mkv
+
+# GitHub Actions
+.github/
+
+# Node modules (if any)
+node_modules/
