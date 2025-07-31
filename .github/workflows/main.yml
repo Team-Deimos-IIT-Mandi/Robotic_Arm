@@ -25,7 +25,7 @@ jobs:
           docker run --rm my-robot-image:test rospack find roscpp
 
           # Test that it can find a package from your source code
-          # NOTE: Change 'arm_urdf' if you renamed your package
+          # IMPORTANT: Rename 'arm_urdf' if your package name is different
           docker run --rm my-robot-image:test rospack find arm_urdf
 
   push-to-registry:
