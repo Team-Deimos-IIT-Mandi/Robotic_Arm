@@ -10,8 +10,13 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
 - **Docker Containerized**: Zero-setup deployment for team collaboration
 - **GUI Support**: Full X11 forwarding for RViz, Gazebo, and other GUI applications
 - **Persistent Container**: Maintains workspace state between sessions
+- **CI/CD Pipeline**: Automated testing and deployment with GitHub Actions
 
 ## 🚀 Quick Start
+
+![Working Demo](videos/working.gif)
+
+*The robotic arm performing pick and place operations*
 
 ### Prerequisites
 
@@ -19,12 +24,32 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
 - X11 forwarding support (Linux/macOS with XQuartz)
 - NVIDIA GPU drivers (optional, for GPU acceleration)
 
-### Option 1: Using the Launch Script (Recommended)
+### Option 1: Using Pre-built Image (Fastest)
+
+1. **Pull the latest image:**
+   ```bash
+   docker pull ak9685/robotic-arm-project:main
+   ```
+
+2. **Run directly:**
+   ```bash
+   docker run -it \
+     --gpus all \
+     --name robotic_arm_container \
+     --env="DISPLAY=$DISPLAY" \
+     --env="QT_X11_NO_MITSHM=1" \
+     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+     --net=host \
+     --privileged \
+     ak9685/robotic-arm-project:main
+   ```
+
+### Option 2: Using the Launch Script (Recommended for Development)
 
 1. **Clone the repository:**
    ```bash
-   git clone <your-repo-url>
-   cd robotic-arm-project
+   git clone https://github.com/Team-Deimos-IIT-Mandi/Robotic_Arm
+   cd Robotic_Arm
    ```
 
 2. **Make the launch script executable:**
@@ -37,7 +62,7 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
    ./launch_container.sh
    ```
 
-### Option 2: Using Docker Compose
+### Option 3: Using Docker Compose
 
 1. **Setup X11 forwarding:**
    ```bash
@@ -53,7 +78,7 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
    docker-compose exec robotic_arm /bin/bash
    ```
 
-### Option 3: Manual Docker Commands
+### Option 4: Build from Source
 
 1. **Build the image:**
    ```bash
@@ -80,7 +105,7 @@ Once inside the container, you can run various commands:
 ### Launch Full Simulation
 ```bash
 # Launch complete environment (Gazebo + MoveIt + RViz)
-roslaunch your_package_name main.launch
+roslaunch roslaunch arm_moveit_config final_arm_launch.launch
 ```
 
 ### Launch Individual Components
@@ -89,7 +114,7 @@ roslaunch your_package_name main.launch
 roslaunch arm_moveit_config demo.launch
 
 # Launch only Gazebo simulation
-roslaunch your_package_name gazebo.launch
+roslaunch robotic_arm gazebo.launch
 
 # Launch MoveIt move_group node
 roslaunch arm_moveit_config move_group.launch
@@ -105,21 +130,32 @@ rostopic echo /joint_states
 
 # List active controllers
 rosservice call controller_manager/list_controllers
+
+# Check ROS package path
+echo $ROS_PACKAGE_PATH
+
+# List all ROS packages
+rospack list
 ```
 
 ## 📁 Project Structure
 
 ```
-robotic-arm-project/
+Robotic_Arm/
+├── .github/
+│   └── workflows/
+│       └── main.yml           # CI/CD pipeline
 ├── Dockerfile                 # Main container definition
 ├── docker-compose.yml         # Docker Compose configuration
 ├── launch_container.sh        # Enhanced launch script
 ├── README.md                  # This file
-├── src/                       # ROS packages
+├── .dockerignore              # Docker ignore patterns
+├── src/                       # ROS packages source code
 │   ├── Arm_Urdf/              # Robot URDF and configurations
 │   ├── arm_moveit_config/     # MoveIt configuration
 │   └── teleop_arm/            # Teleoperation package
-└── .dockerignore              # Docker ignore patterns
+└── videos/
+    └── working.gif            # Demo video
 ```
 
 ## 🔧 Configuration Files
@@ -133,6 +169,23 @@ robotic-arm-project/
 The project uses `position_controllers/JointTrajectoryController` for both:
 - **Body Controller**: Controls main arm joints (Joint_1 to Joint_6)
 - **End Effector Controller**: Controls gripper fingers (Finger_1, Finger_2)
+
+## 🚀 CI/CD Pipeline
+
+This project includes automated testing and deployment:
+
+- **Continuous Integration**: Every push triggers automated builds and tests
+- **Docker Hub Deployment**: Successful builds on `main` branch are automatically pushed to Docker Hub
+- **Multi-stage Testing**: Container functionality is verified before deployment
+
+### Build Status
+![Build Status](https://github.com/Team-Deimos-IIT-Mandi/Robotic_Arm/workflows/🤖%20Build,%20Test,%20and%20Deploy%20ROS%20Container/badge.svg)
+
+### Using Latest Stable Image
+```bash
+# Always get the latest tested version
+docker pull ak9685/robotic-arm-project:main
+```
 
 ## 🐛 Troubleshooting
 
@@ -163,6 +216,17 @@ The project uses `position_controllers/JointTrajectoryController` for both:
    ```bash
    # Clean build with no cache
    docker build --no-cache -t robotic_arm:latest .
+   
+   # Or pull the pre-built image
+   docker pull ak9685/robotic-arm-project:main
+   ```
+
+5. **Package Not Found Errors:**
+   ```bash
+   # Check if packages are properly built
+   source /opt/ros/noetic/setup.bash
+   source /root/ros_ws/devel/setup.bash
+   rospack list | grep -i arm
    ```
 
 ### Launch Script Options:
@@ -175,10 +239,18 @@ The project uses `position_controllers/JointTrajectoryController` for both:
 
 ## 🔄 Development Workflow
 
-1. **Make changes** to your code on the host system
-2. **Rebuild** the container: `./launch_container.sh --rebuild`
-3. **Test** your changes inside the container
-4. **Commit** and **push** to your repository
+### For Contributors:
+1. **Fork** the repository
+2. **Create a branch** for your feature
+3. **Make changes** to your code
+4. **Test locally** using the Docker environment
+5. **Push changes** - CI/CD will automatically test your changes
+6. **Submit a pull request**
+
+### For Users:
+1. **Pull latest changes**: `git pull origin main`
+2. **Use pre-built image**: `docker pull ak9685/robotic-arm-project:main`
+3. **Or rebuild locally**: `./launch_container.sh --rebuild`
 
 ## 📦 What's Included
 
@@ -199,14 +271,23 @@ The project uses `position_controllers/JointTrajectoryController` for both:
 - ✅ Controller configurations
 - ✅ Launch files for all scenarios
 - ✅ GUI applications support
+- ✅ Automated testing pipeline
+- ✅ Docker Hub integration
 
 ## 👥 Team Collaboration
 
-Your teammates can simply:
+Your teammates can get started in multiple ways:
 
+### Option 1: Quick Start (No Build Required)
+```bash
+docker pull ak9685/robotic-arm-project:main
+docker run -it --gpus all --name robotic_arm --env="DISPLAY=$DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" --net=host --privileged ak9685/robotic-arm-project:main
+```
+
+### Option 2: Development Setup
 1. **Clone** the repository
 2. **Run** `./launch_container.sh`
-3. **Start working** immediately!
+3. **Start developing** immediately!
 
 No need to:
 - Install ROS
@@ -218,18 +299,36 @@ No need to:
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Test in the Docker environment
-5. Submit a pull request
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+The CI/CD pipeline will automatically test your changes!
+
+## 📈 Project Status
+
+- ✅ **Active Development**: Regular updates and improvements
+- ✅ **Automated Testing**: Every commit is tested
+- ✅ **Docker Hub**: Latest stable versions available
+- ✅ **Documentation**: Comprehensive setup and usage guides
 
 ## 📞 Support
 
 For issues and questions:
-- Open an issue in the repository
-- Check the troubleshooting section
-- Review ROS/MoveIt documentation
+- 🐛 **Bug Reports**: [Open an issue](https://github.com/Team-Deimos-IIT-Mandi/Robotic_Arm/issues)
+- 💡 **Feature Requests**: [Start a discussion](https://github.com/Team-Deimos-IIT-Mandi/Robotic_Arm/discussions)
+- 📖 **Documentation**: Check this README and inline code comments
+- 🤝 **Community**: Join our project discussions
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 **Happy Robotics! 🤖✨**
+
+*Built with ❤️ by Team Deimos, IIT Mandi*
