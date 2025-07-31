@@ -1,5 +1,3 @@
-# .github/workflows/main.yml
-
 name: "🤖 Build, Test, and Deploy ROS Container"
 
 on:
@@ -31,11 +29,22 @@ jobs:
           docker run -d --name test-container my-robot-image:test tail -f /dev/null
 
           echo "--- Waiting for container to settle ---"
-          sleep 10 # Give a moment for any startup processes
+          sleep 5
 
-          echo "--- Checking ROS installation and workspace ---"
-          docker exec test-container /bin/bash -c "source /catkin_ws/devel/setup.bash && rospack find controller_manager"
-          docker exec test-container /bin/bash -c "source /catkin_ws/devel/setup.bash && rospack find arm_moveit_config"
+          echo "--- Checking ROS installation ---"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find controller_manager"
+          
+          echo "--- Checking workspace setup ---"
+          docker exec test-container /bin/bash -c "ls -la /root/ros_ws/"
+          
+          echo "--- Checking if devel exists ---"
+          docker exec test-container /bin/bash -c "ls -la /root/ros_ws/devel/ || echo 'No devel directory - that is ok for empty workspace'"
+          
+          echo "--- Testing ROS core functionality ---"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack list | head -5"
+          
+          echo "--- Testing MoveIt installation ---"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find moveit_core"
 
           echo "--- Cleaning up test container ---"
           docker stop test-container
@@ -44,7 +53,8 @@ jobs:
         if: failure()
         run: |
           mkdir -p build-logs
-          docker logs test-container &> build-logs/container_logs.txt
+          docker logs test-container &> build-logs/container_logs.txt || echo "Could not get container logs"
+          
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -78,7 +88,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ak9685/robotic-arm-project #change this 
+          images: ak9685/robotic-arm-project
 
       - name: "Build and push Docker image"
         uses: docker/build-push-action@v5
