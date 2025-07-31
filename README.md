@@ -237,6 +237,46 @@ docker pull ak9685/robotic-arm-project:main
 ./launch_container.sh --fresh    # Create fresh container
 ```
 
+
+
+### 🤖 Teleoperation with Stereo Vision
+
+This project enables teleoperation of a robotic arm using stereo vision for object detection and a virtual controller for manual control.
+
+---
+
+#### 🧠 Components
+
+##### 1. **Red Cylinder Detection + Autonomous Arm Movement**
+
+```bash
+rosrun teleop_arm cylinder_primitive_final.py
+```
+
+* Detects a red cylindrical object using stereo camera input.
+* Calculates the **(x, y, z)** coordinates of the object.
+* Moves the robotic arm incrementally toward the detected position.
+* Object detection is implemented using **OpenCV**. You can easily swap it with other models like **YOLO**, **MediaPipe**, or any preferred detector.
+
+##### 2. **Virtual Teleoperation Controller**
+
+```bash
+rosrun teleop_arm teleop_controller_final.py
+```
+
+* Launches a **Tkinter-based GUI** for manual control.
+* Allows interactive movement of the robotic arm using on-screen buttons.
+
+---
+
+### ⚠️ Note
+
+The **stereo vision package** was used **only for testing purposes**.
+It is **not required** during actual teleoperation and does not affect arm control.
+
+---
+
+
 ## 🔄 Development Workflow
 
 ### For Contributors:
