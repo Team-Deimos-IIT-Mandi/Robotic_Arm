@@ -1,49 +1,38 @@
-# Minimal working Dockerfile for ROS Noetic with MoveIt
+# Minimal working Dockerfile for ROS Noetic
 FROM osrf/ros:noetic-desktop-full
-
-# Set shell to bash
-SHELL ["/bin/bash", "-c"]
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=noetic
 ENV WORKSPACE_DIR=/root/ros_ws
 
-# Install essential packages and ROS controllers
+# Install essential build tools. MoveIt and controllers are in the base image.
 RUN apt-get update && apt-get install -y \
     python3-catkin-tools \
     python3-rosdep \
-    ros-${ROS_DISTRO}-moveit \
-    ros-${ROS_DISTRO}-ros-control \
-    ros-${ROS_DISTRO}-ros-controllers \
-    ros-${ROS_DISTRO}-gazebo-ros-control \
     && rm -rf /var/lib/apt/lists/*
 
 # Initialize rosdep
-RUN rosdep init || true && rosdep update
+RUN rosdep init || true
+RUN rosdep update
 
-# Create workspace
+# Create workspace and set as working directory
 WORKDIR ${WORKSPACE_DIR}
-RUN mkdir -p src
+COPY ./src ./src
 
-# Copy source code
-COPY ./src ./src/
-
-# Install dependencies and build
+# Install dependencies from your source packages. Let it fail if deps are missing.
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
-    rosdep install --from-paths src --ignore-src -r -y || true && \
-    catkin build || catkin_make
+    rosdep install --from-paths src --ignore-src -r -y
 
-# Create entrypoint
+# Build the workspace. Let it fail if the build is broken.
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    catkin build
+
+# Create entrypoint. This now runs AFTER a successful build.
 RUN echo '#!/bin/bash\n\
 set -e\n\
 source /opt/ros/noetic/setup.bash\n\
-if [ -f "/root/ros_ws/devel/setup.bash" ]; then\n\
-    source /root/ros_ws/devel/setup.bash\n\
-    echo "Custom workspace loaded"\n\
-fi\n\
-echo "🤖 ROS Noetic Environment Ready!"\n\
-echo "Available commands: rospack, roslaunch, rosrun"\n\
+source ${WORKSPACE_DIR}/devel/setup.bash\n\
 exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
