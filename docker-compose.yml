@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  robotic_arm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: robotic_arm:latest
+    container_name: robotic_arm_container
+    
+    # GUI and X11 forwarding
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/.docker.xauth
+      - ROS_MASTER_URI=http://localhost:11311
+      - ROS_HOSTNAME=localhost
+    
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.docker.xauth:/tmp/.docker.xauth
+      - .:/root/host_project:ro
+    
+    network_mode: host
+    privileged: true
+    
+    # GPU support (uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    
+    stdin_open: true
+    tty: true
+    
+    working_dir: /root/ros_ws
+    
+    # Keep container running
+    command: tail -f /dev/null

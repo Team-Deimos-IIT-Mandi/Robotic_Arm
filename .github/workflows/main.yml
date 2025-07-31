@@ -1,0 +1,89 @@
+# .github/workflows/main.yml
+
+name: "🤖 Build, Test, and Deploy ROS Container"
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  #########################################
+  # JOB 1: Build and Run Basic Tests    #
+  #########################################
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout repository code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+
+      - name: "Build Docker image for testing"
+        run: docker build -t my-robot-image:test .
+
+      - name: "Run Sanity Checks on Container"
+        run: |
+          echo "--- Starting container for tests ---"
+          docker run -d --name test-container my-robot-image:test tail -f /dev/null
+
+          echo "--- Waiting for container to settle ---"
+          sleep 10 # Give a moment for any startup processes
+
+          echo "--- Checking ROS installation and workspace ---"
+          docker exec test-container /bin/bash -c "source /catkin_ws/devel/setup.bash && rospack find controller_manager"
+          docker exec test-container /bin/bash -c "source /catkin_ws/devel/setup.bash && rospack find arm_moveit_config"
+
+          echo "--- Cleaning up test container ---"
+          docker stop test-container
+
+      - name: "Archive Logs on Failure"
+        if: failure()
+        run: |
+          mkdir -p build-logs
+          docker logs test-container &> build-logs/container_logs.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-and-test-logs
+          path: build-logs/
+
+  #########################################
+  # JOB 2: Push Image to Docker Hub       #
+  #########################################
+  push-to-registry:
+    # This job runs only after build-and-test succeeds
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # This job runs only on a push to the main branch, not on PRs or other branches
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: "Checkout repository code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+
+      - name: "🔒 Login to Docker Hub"
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "🏷️ Set up Docker metadata"
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ak9685/robotic-arm-project #change this 
+
+      - name: "Build and push Docker image"
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
