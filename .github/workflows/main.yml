@@ -24,11 +24,10 @@ jobs:
           # Test that the container can run and find a core ROS package
           docker run --rm my-robot-image:test rospack find roscpp
 
+          # --- FIX: Replaced placeholder with a real package name ---
           # Test that it can find a package from your source code
-          # IMPORTANT: Replace 'your_package_name' with a real package name from your 'src' directory
-          docker run --rm my-robot-image:test rospack find your_package_name
+          docker run --rm my-robot-image:test rospack find arm_urdf
 
-  # The push-to-registry job remains the same...
   push-to-registry:
     needs: build-and-test
     runs-on: ubuntu-latest
