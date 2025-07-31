@@ -36,9 +36,14 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
 
 # Create entrypoint
 RUN echo '#!/bin/bash\n\
+set -e\n\
 source /opt/ros/noetic/setup.bash\n\
-[ -f "/root/ros_ws/devel/setup.bash" ] && source /root/ros_ws/devel/setup.bash\n\
+if [ -f "/root/ros_ws/devel/setup.bash" ]; then\n\
+    source /root/ros_ws/devel/setup.bash\n\
+    echo "Custom workspace loaded"\n\
+fi\n\
 echo "🤖 ROS Noetic Environment Ready!"\n\
+echo "Available commands: rospack, roslaunch, rosrun"\n\
 exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

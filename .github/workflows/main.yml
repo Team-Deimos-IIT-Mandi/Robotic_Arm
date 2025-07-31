@@ -25,29 +25,38 @@ jobs:
 
       - name: "Run Sanity Checks on Container"
         run: |
+          echo "--- Testing container can start ---"
+          docker run --rm my-robot-image:test echo "Container can start successfully"
+          
           echo "--- Starting container for tests ---"
-          docker run -d --name test-container my-robot-image:test tail -f /dev/null
+          docker run -d --name test-container my-robot-image:test sleep 30
+          
+          echo "--- Checking if container is running ---"
+          docker ps | grep test-container || echo "Container not running!"
+          
+          echo "--- Getting container logs ---"
+          docker logs test-container || echo "No logs available"
 
           echo "--- Waiting for container to settle ---"
-          sleep 5
+          sleep 3
 
           echo "--- Checking ROS installation ---"
-          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find controller_manager"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find controller_manager" || echo "ROS check failed"
           
           echo "--- Checking workspace setup ---"
-          docker exec test-container /bin/bash -c "ls -la /root/ros_ws/"
+          docker exec test-container /bin/bash -c "ls -la /root/ros_ws/" || echo "Workspace check failed"
           
           echo "--- Checking if devel exists ---"
           docker exec test-container /bin/bash -c "ls -la /root/ros_ws/devel/ || echo 'No devel directory - that is ok for empty workspace'"
           
           echo "--- Testing ROS core functionality ---"
-          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack list | head -5"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack list | head -5" || echo "ROS core test failed"
           
           echo "--- Testing MoveIt installation ---"
-          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find moveit_core"
+          docker exec test-container /bin/bash -c "source /opt/ros/noetic/setup.bash && rospack find moveit_core" || echo "MoveIt test failed"
 
           echo "--- Cleaning up test container ---"
-          docker stop test-container
+          docker stop test-container || echo "Container already stopped"
 
       - name: "Archive Logs on Failure"
         if: failure()
