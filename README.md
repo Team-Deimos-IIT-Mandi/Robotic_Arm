@@ -105,7 +105,7 @@ Once inside the container, you can run various commands:
 ### Launch Full Simulation
 ```bash
 # Launch complete environment (Gazebo + MoveIt + RViz)
-roslaunch roslaunch arm_moveit_config final_arm_launch.launch
+roslaunch arm_moveit_config final_arm_launch.launch
 ```
 
 ### Launch Individual Components
