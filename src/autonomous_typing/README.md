@@ -47,6 +47,61 @@ autonomous_typing/
 ### Motion Planning
 - `moveit_commander` - MoveIt! motion planning interface
 
+## Installation & Environment Setup
+
+### ROS Dependencies Installation
+
+Install the required ROS packages:
+```bash
+# Install core ROS packages
+apt update
+apt install -y ros-noetic-pinocchio ros-noetic-moveit
+
+# Source ROS environment
+source /opt/ros/noetic/setup.bash
+```
+
+### Python Environment Configuration
+
+**Important**: Due to how ROS Noetic packages Pinocchio on Ubuntu 20.04, you need to configure the Python path correctly:
+
+```bash
+# Add the correct Python path for ROS Noetic's Pinocchio installation
+export PYTHONPATH=$PYTHONPATH:/opt/ros/noetic/lib/python3.8/site-packages
+
+# Make this permanent by adding to your bashrc
+echo 'export PYTHONPATH=$PYTHONPATH:/opt/ros/noetic/lib/python3.8/site-packages' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Verification**: Test that Pinocchio imports correctly:
+```bash
+python3 -c "import pinocchio; print('SUCCESS: Pinocchio version', pinocchio.__version__)"
+```
+
+### Python Dependencies Installation
+
+Install Python packages via pip:
+```bash
+pip3 install ultralytics opencv-python-headless numpy-quaternion pynput PyQt5
+```
+
+**Note**: Use `ros-noetic-pinocchio` (apt) instead of `pip3 install pin` to avoid dependency conflicts.
+
+### Workspace Setup
+
+```bash
+# Build the workspace
+cd /root/ros_ws
+catkin_make
+
+# Source the workspace
+source devel/setup.bash
+
+# Make Python scripts executable
+find /root/ros_ws/src/Robotic_Arm/src/autonomous_typing/src -name "*.py" -exec chmod +x {} \;
+```
+
 ## System Architecture
 
 The autonomous typing system follows a modular ROS-based architecture that separates concerns for better maintainability and scalability:
@@ -152,11 +207,36 @@ The system can detect 60+ keyboard key classes:
 
 ## Usage
 
+### Quick Start
+
+1. **Set up environment**:
+```bash
+# Source ROS and workspace
+source /opt/ros/noetic/setup.bash
+cd /root/ros_ws
+source devel/setup.bash
+
+# Ensure Python path is set for Pinocchio
+export PYTHONPATH=$PYTHONPATH:/opt/ros/noetic/lib/python3.8/site-packages
+```
+
+2. **Launch simulation**:
+```bash
+roslaunch autonomous_typing test.launch
+```
+
 ### 1. Simulation Mode
 
 Launch the complete system with Gazebo simulation:
 
 ```bash
+# Ensure environment is properly configured
+source /opt/ros/noetic/setup.bash
+cd /root/ros_ws
+source devel/setup.bash
+export PYTHONPATH=$PYTHONPATH:/opt/ros/noetic/lib/python3.8/site-packages
+
+# Launch the full system
 roslaunch autonomous_typing test.launch
 ```
 
@@ -257,10 +337,28 @@ K = np.array([
 
 ### Common Issues
 
-1. **YOLO Model Loading**: Ensure `trained_yolov8n.pt`is in the workspace root
-2. **Camera Topics**: Verify camera topic names match your hardware setup
-3. **MoveIt! Configuration**: Ensure the arm's MoveIt! config is properly loaded
-4. **TF Frames**: Check that all required TF frames are being published
+1. **YOLO Model Loading**: Ensure `trained_yolov8n.pt` is in the workspace root
+
+2. **Pinocchio Import Error**: 
+   ```bash
+   # Solution: Set the correct Python path
+   export PYTHONPATH=$PYTHONPATH:/opt/ros/noetic/lib/python3.8/site-packages
+   
+   # Verify Pinocchio can be imported:
+   python3 -c "import pinocchio; print('SUCCESS: Pinocchio version', pinocchio.__version__)"
+   ```
+
+3. **Camera Topics**: Verify camera topic names match your hardware setup
+
+4. **MoveIt! Configuration**: Ensure the arm's MoveIt! config is properly loaded
+
+5. **TF Frames**: Check that all required TF frames are being published
+
+6. **Environment Setup**: Always source both ROS and workspace:
+   ```bash
+   source /opt/ros/noetic/setup.bash
+   source /root/ros_ws/devel/setup.bash
+   ```
 
 ### Debug Mode
 
@@ -269,9 +367,31 @@ Enable debug logging:
 controller = Controller(debug=True)
 ```
 
+### Environment Verification
+
+Run these commands to verify your setup:
+```bash
+# Check ROS environment
+echo $ROS_DISTRO
+
+# Check Python path
+python3 -c "import sys; print('\n'.join(sys.path))"
+
+# Test Pinocchio import
+python3 -c "import pinocchio; print('Pinocchio OK')"
+
+# Check workspace
+ls /root/ros_ws/devel/setup.bash
+```
+To Make All Scripts Executable
+```bash
+find ~/ros_ws/src/Robotic_Arm -type f -name "*.py" -exec chmod +x {} \;
+```
 ## Future Enhancements
 
 - [ ] Error correction and retry mechanisms
 - [ ] Real-time keyboard detection and registration
 - [ ] Visual Servoing for fine actuator control near the point of contact
-
+- [ ] Automatic camera calibration
+- [ ] Support for different keyboard layouts
+- [ ] Docker container with pre-configured environment
