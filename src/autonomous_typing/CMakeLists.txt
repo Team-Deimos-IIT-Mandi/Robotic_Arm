@@ -26,6 +26,7 @@ catkin_install_python(PROGRAMS
   src/autonomous.py
   src/detection_node.py
   src/typing_node.py
+  src/typing_node_ik.py
   
   # Scripts in src/redundant_code/
   src/redundant_code/a_bit_of_hardcoded.py

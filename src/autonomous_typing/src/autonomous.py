@@ -45,7 +45,7 @@ class Controller:
         self.base_frame = rospy.get_param('~base_frame', 'base_link')
 
         rospy.logdebug("Loading YOLO model")
-        self.model = YOLO('yolov8n-obb.pt')
+        self.model = YOLO('/root/ros_ws/src/Robotic_Arm/trained_yolov8n.pt')
         rospy.sleep(1)
         os.environ['YOLO_LOG_LEVEL'] = 'error'
         logging.getLogger("ultralytics").setLevel(logging.ERROR)

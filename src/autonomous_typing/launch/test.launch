@@ -30,3 +30,6 @@
     <node name="ik_gazebo" pkg="Arm_Urdf" type="IK_gazebo.py" output="screen"/>
 
 </launch>
+
+<!-- Initial Joint States -->
+<!-- 0 0  0.02 -1 -0.15 3.11 0.44 3.13 -->
