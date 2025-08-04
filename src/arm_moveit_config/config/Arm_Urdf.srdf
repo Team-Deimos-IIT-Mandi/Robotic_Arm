@@ -55,6 +55,17 @@
         <joint name="Joint_5" value="1.5272"/>
         <joint name="Joint_6" value="-0.0991"/>
     </group_state>
+     <!-- <group_state name="detection_pose" group="body">
+        <joint name="Joint_1" value="0"/>
+        <joint name="Joint_2" value="0"/>
+        <joint name="Joint_3" value="0.02"/>
+        <joint name="Joint_4" value="-1"/>
+        <joint name="Joint_5" value="-0.15"/>
+        <joint name="Joint_6" value="3.11"/>
+        <joint name="finger_1" value="0.44"/>
+        <joint name="finger_2" value="3.13"/>
+    </group_state> -->
+
 
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
     <disable_collisions link1="Gripper_1" link2="Gripper_2" reason="Never"/>
