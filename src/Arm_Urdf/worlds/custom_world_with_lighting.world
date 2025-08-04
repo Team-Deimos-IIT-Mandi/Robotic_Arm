@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<world name="default">
+    <!-- Set the lighting properties -->
+    <lighting>
+        <ambient>1 1 1 1</ambient>  <!-- Full white ambient light -->
+        <directional>
+            <diffuse>1 1 1 1</diffuse> <!-- Full diffuse light -->
+            <specular>1 1 1 1</specular> <!-- Specular lighting -->
+            <direction>-1 -1 -1</direction> <!-- Direction of light -->
+        </directional>
+    </lighting>
+
+    <!-- Optionally add ground plane -->
+    <include>
+        <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- Optionally add other models or objects -->
+    <include>
+        <uri>model://sun</uri>  <!-- Default sun model -->
+    </include>
+
+    <!-- Optionally add a robot, camera, or other models here -->
+    <!-- Example: -->
+    <!-- <include>
+        <uri>model://your_robot_model</uri>
+    </include> -->
+</world>
