@@ -23,3 +23,7 @@
   <!-- Launch RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find yolo_camera_pkg)/rviz/box.rviz" required="true"/>
 </launch>
+
+
+
+#testing
