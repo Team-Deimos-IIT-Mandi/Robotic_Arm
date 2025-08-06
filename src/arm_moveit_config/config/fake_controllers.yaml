@@ -1,9 +1,8 @@
 controller_list:
-  - name: fake_end_effector_controller
+  - name: fake_pointer_controller
     type: $(arg fake_execution_type)
     joints:
-      - Finger_1
-      - Finger_2
+      - pointer_extend_joint
   - name: fake_body_controller
     type: $(arg fake_execution_type)
     joints:
@@ -14,7 +13,5 @@ controller_list:
       - Joint_5
       - Joint_6
 initial:  # Define initial robot poses per group
-  - group: end_effector
-    pose: full_open
   - group: body
     pose: home

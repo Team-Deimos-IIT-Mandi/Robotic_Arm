@@ -8,16 +8,6 @@ default_acceleration_scaling_factor: 0.1
 # Specific joint properties can be changed with the keys [max_position, min_position, max_velocity, max_acceleration]
 # Joint limits can be turned off with [has_velocity_limits, has_acceleration_limits]
 joint_limits:
-  Finger_1:
-    has_velocity_limits: true
-    max_velocity: 10
-    has_acceleration_limits: false
-    max_acceleration: 0
-  Finger_2:
-    has_velocity_limits: true
-    max_velocity: 10
-    has_acceleration_limits: false
-    max_acceleration: 0
   Joint_1:
     has_velocity_limits: true
     max_velocity: 5
@@ -44,6 +34,11 @@ joint_limits:
     has_acceleration_limits: false
     max_acceleration: 0
   Joint_6:
+    has_velocity_limits: true
+    max_velocity: 5
+    has_acceleration_limits: false
+    max_acceleration: 0
+  pointer_extend_joint:
     has_velocity_limits: true
     max_velocity: 5
     has_acceleration_limits: false

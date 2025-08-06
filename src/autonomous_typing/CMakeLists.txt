@@ -29,6 +29,7 @@ catkin_install_python(PROGRAMS
   src/typing_node_ik.py
   src/move_to_pose.py
   src/keyboard_visualizer.py
+  src/autonomous_old.py
   
   
   # Scripts in src/redundant_code/

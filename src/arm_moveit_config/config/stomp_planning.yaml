@@ -1,5 +1,5 @@
-stomp/end_effector:
-  group_name: end_effector
+stomp/pointer:
+  group_name: pointer
   optimization:
     num_timesteps: 60
     num_iterations: 40
@@ -11,7 +11,7 @@ stomp/end_effector:
   task:
     noise_generator:
       - class: stomp_moveit/NormalDistributionSampling
-        stddev: [0.05, 0.05]
+        stddev: [0.05]
     cost_functions:
       - class: stomp_moveit/CollisionCheck
         collision_penalty: 1.0

@@ -309,7 +309,7 @@ class Controller:
         rospy.loginfo(f"   Keys: {list(self.keyboard_points_3d.keys())}")
         
         # Add 3D visualization after successful mapping
-        self.visualize_keys_3d()
+        # self.visualize_keys_3d()
         
         return len(self.keyboard_points_3d) > 0
 

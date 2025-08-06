@@ -10,10 +10,9 @@ controller_list:
       - Joint_4
       - Joint_5
       - Joint_6
-  - name: end_effector_controller
+  - name: pointer_controller
     action_ns: follow_joint_trajectory
     type: FollowJointTrajectory
-    default: True
+    default: true
     joints:
-      - Finger_1
-      - Finger_2
+      - pointer_extend_joint
