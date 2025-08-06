@@ -316,7 +316,7 @@ class Controller:
         return keypoints_3d
         
     def get_transform(self, point):
-        """Transform a point from the camera frame to the world frame."""
+        """Transform a point from the camera frame to the world frame with proper tip offset."""
         tf_buffer = tf2_ros.Buffer()
         listener = tf2_ros.TransformListener(tf_buffer)
 
@@ -326,15 +326,33 @@ class Controller:
             camera_point.point.x = point[2]
             camera_point.point.y = -point[0]
             camera_point.point.z = -point[1]
+            
             # Wait for the transform to be available
             transform = tf_buffer.lookup_transform("world", self.camera_frame_left, rospy.Time(0), rospy.Duration(1.0))
+            
             # Transform the point
             world_point = do_transform_point(camera_point, transform)
-            return [world_point.point.x,world_point.point.y,world_point.point.z]
+            
+            # Apply tip offset - since camera is 21.4cm away from tip as per my calculation from urdf 
+            # The tip is closer to the keyboard, so we need to move the target closer to the arm
+            # Adjust based on your actual setup - this moves target 21.4cm closer in Y direction
+            tip_offset_world = np.array([0, 0.214, 0])  # Move 21.4cm closer in Y direction (positive Y brings it closer to arm base)
+            
+            final_position = np.array([
+                world_point.point.x + tip_offset_world[0],
+                world_point.point.y + tip_offset_world[1], 
+                world_point.point.z + tip_offset_world[2]
+            ])
+            
+            rospy.loginfo(f"Original camera position: [{world_point.point.x:.3f}, {world_point.point.y:.3f}, {world_point.point.z:.3f}]")
+            rospy.loginfo(f"Adjusted tip position: [{final_position[0]:.3f}, {final_position[1]:.3f}, {final_position[2]:.3f}]")
+            
+            return final_position.tolist()
+            
         except tf2_ros.LookupException as e:
             rospy.logerr(f"Transform lookup failed: {e}")
             return None
-        
+            
     
     # Modify the control flow to use the new method
     # def get_keyboard_points(self):
@@ -428,32 +446,171 @@ class Controller:
     #     except Exception as e:
     #         rospy.logerr(f"Error in move_arm_to_position: {e}")
     #         return False
-    def move_arm_to_position(self, position_3d):
+    def move_arm_to_position(self, position_3d, use_cartesian=False, timeout=10.0):
         """
-        Moves the arm to a target position using MoveIt's standard planner.
-        This is more robust than a Cartesian path.
+        Moves the arm to a target position using MoveIt's planner.
+        More conservative approach with better error handling.
         """
         rospy.loginfo(f"Planning and moving to: {position_3d}")
         
-        # Set the target position
-        self.arm_group.set_position_target(position_3d)
-
-        # Let MoveIt plan and execute. The `go()` command is a blocking call
-        # that returns True on success and False on failure.
-        success = self.arm_group.go(wait=True)
-
-        # Calling ``stop()`` ensures that there is no residual movement
-        self.arm_group.stop()
-        # It is always good to clear your targets after planning with poses.
-        self.arm_group.clear_pose_targets()
+        # Get current position for comparison
+        current_pose = self.arm_group.get_current_pose().pose
+        current_pos = np.array([current_pose.position.x, current_pose.position.y, current_pose.position.z])
+        distance = np.linalg.norm(position_3d - current_pos)
         
-        if success:
-            rospy.loginfo("Movement successful!")
-        else:
-            rospy.logerr("Movement failed!")
+        rospy.loginfo(f"Current position: {current_pos}")
+        rospy.loginfo(f"Target position: {position_3d}")
+        rospy.loginfo(f"Distance to target: {distance:.4f}m")
+        
+        # More conservative safety threshold
+        if distance > 0.8: #kee 80cm for accuracy
+            rospy.logerr(f"Target position is too far ({distance:.3f}m). Aborting for safety.")
+            return False
+        
+        try:
+            if use_cartesian:
+                rospy.loginfo("Attempting Cartesian path planning...")
+                
+                target_pose = Pose()
+                target_pose.position.x = position_3d[0]
+                target_pose.position.y = position_3d[1] 
+                target_pose.position.z = position_3d[2]
+                target_pose.orientation = current_pose.orientation
+                
+                waypoints = [target_pose]
+                
+                # Try Cartesian path with detailed logging
+                rospy.loginfo("Computing Cartesian path...")
+                (plan, fraction) = self.arm_group.compute_cartesian_path(
+                    waypoints, 
+                    eef_step=0.01  # Larger step size for better success observed in practice
+                )
+                
+                rospy.loginfo(f"Cartesian path planning result: {fraction*100:.1f}% successful")
+                
+                if fraction >= 0.8:  # Higher threshold for Cartesian
+                    rospy.loginfo("Cartesian path acceptable - executing...")
+                    success = self.arm_group.execute(plan, wait=True)
+                    if success:
+                        rospy.loginfo("Cartesian execution successful!")
+                    else:
+                        rospy.logerr("Cartesian execution failed!")
+                else:
+                    rospy.logwarn(f"Cartesian path insufficient ({fraction*100:.1f}%) - falling back to standard planning")
+                    success = self._standard_planning(position_3d, current_pose, timeout)
+                            
+            else:
+                rospy.loginfo("Attempting standard planning...")
+                success = self._standard_planning(position_3d, current_pose, timeout)
             
+            self.arm_group.stop()
+            self.arm_group.clear_pose_targets()
+            
+            if success:
+                # Verify final position
+                final_pose = self.arm_group.get_current_pose().pose
+                final_pos = np.array([final_pose.position.x, final_pose.position.y, final_pose.position.z])
+                final_distance = np.linalg.norm(position_3d - final_pos)
+                rospy.loginfo(f"Movement successful! Final distance to target: {final_distance:.4f}m")
+            else:
+                rospy.logerr("Movement failed!")
+                
+            return success
+            
+        except Exception as e:
+            rospy.logerr(f"Error in move_arm_to_position: {e}")
+            import traceback
+            traceback.print_exc()
+            self.arm_group.stop()
+            self.arm_group.clear_pose_targets()
+            return False
+
+    def _standard_planning(self, position_3d, current_pose, timeout):
+        """Helper function for standard planning with more conservative settings"""
+        target_pose = Pose()
+        target_pose.position.x = position_3d[0]
+        target_pose.position.y = position_3d[1]
+        target_pose.position.z = position_3d[2]
+        target_pose.orientation = current_pose.orientation
+        
+        rospy.loginfo("Setting up standard planning...")
+        
+        # More conservative planning settings
+        rospy.loginfo(f"Setting planning time: {timeout}s")
+        self.arm_group.set_planning_time(timeout)
+        
+        rospy.loginfo("Setting planning attempts: 5")  # Increased attempts to 5
+        self.arm_group.set_num_planning_attempts(5)
+        
+        # Set planning constraints for better success
+        self.arm_group.set_goal_position_tolerance(0.01)  # 1cm tolerance
+        self.arm_group.set_goal_orientation_tolerance(0.1)  # Relaxed orientation tolerance
+        
+        rospy.loginfo("Setting pose target...")
+        self.arm_group.set_pose_target(target_pose)
+        
+        rospy.loginfo("Starting motion planning...")
+        success = self.arm_group.go(wait=True)
+        
+        if not success:
+            rospy.logerr("Standard planning failed!")
+            # Try with relaxed constraints
+            rospy.loginfo("Trying with relaxed constraints...")
+            self.arm_group.set_goal_position_tolerance(0.02)  # 2cm tolerance
+            self.arm_group.set_goal_orientation_tolerance(0.2)  # More relaxed orientation
+            success = self.arm_group.go(wait=True)
+            
+            if success:
+                rospy.loginfo("Planning succeeded with relaxed constraints!")
+            else:
+                rospy.logerr("Planning failed even with relaxed constraints!")
+        
         return success
-    
+
+    def disable_keyboard_collision(self):
+        """
+        Disable collision detection with keyboard to allow typing motions.
+        """
+        try:
+            # Remove keyboard from collision objects if it exists
+            rospy.loginfo("Disabling keyboard collision detection...")
+            
+            # Get all known objects in the planning scene
+            known_objects = self.scene.get_known_object_names()
+            
+            # Remove any objects that might represent the keyboard
+            keyboard_objects = [obj for obj in known_objects if 'keyboard' in obj.lower()]
+            for obj in keyboard_objects:
+                self.scene.remove_world_object(obj)
+                rospy.loginfo(f"Removed collision object: {obj}")
+            
+            # Allow collision between end-effector and any remaining objects
+            self.arm_group.set_support_surface_name("keyboard")
+            
+            rospy.sleep(1.0)  # Wait for scene update
+            
+        except Exception as e:
+            rospy.logerr(f"Error disabling keyboard collision: {e}")
+
+    def get_tip_position_from_camera_detection(self, camera_position_3d):
+        """
+        Convert camera-detected position to actual tip position.
+        The tip is 21.4cm away from the camera.
+        
+        Args:
+            camera_position_3d: 3D position detected by camera
+            
+        Returns:
+            np.array: Adjusted position for the tip
+        """
+        ###########################################Todo#################################################
+
+
+        # The tip is 21.4cm (0.214m) away from the camera
+        # Assuming the tip is in the negative Y direction relative to camera frame from urdf i have top fix this also if it didnt worked
+        tip_offset = np.array([0, -0.214, 0])  # Adjust this based on your actual tip orientation
+        
+        return camera_position_3d + tip_offset
     # def move_arm_to_position(self, position_3d, tolerance=0.02):
     #     """
     #     Move the robotic arm to the calculated 3D position with incremental steps.
@@ -768,71 +925,90 @@ class Controller:
     def execute_typing_sequence(self):
         """
         Prompts the user for a string and executes the typing motion.
-        This is the refactored version of the old control_flow.
+        More conservative approach with intermediate waypoints.
         """
-        # Prompt user for input string
         try:
             input_string = input("Enter the string to type: ")
         except (EOFError, KeyboardInterrupt):
             rospy.loginfo("Exiting.")
             return
 
-        # Convert input string to keyboard clicks
         keyboard_clicks = self.string_to_keyboard_clicks(input_string)
         print(f"Keyboard clicks: {keyboard_clicks}")
         
-        # The 3D map self.keyboard_points_3d is already populated by map_the_keyboard()
         if not self.keyboard_points_3d:
             rospy.logerr("Cannot execute typing, the 3D keyboard map is empty.")
             return
 
         try:
-            # Get the arm's current position to use as a "home" or "safe" return point
+            # Disable keyboard collision detection
+            self.disable_keyboard_collision()
+            
+            # Get home position helpful in returning after key presssin
             home_pose = self.arm_group.get_current_pose().pose
             home_position = np.array([home_pose.position.x, home_pose.position.y, home_pose.position.z])
             
-            # Iterate through keyboard clicks
+            rospy.loginfo(f"Starting from home position: {home_position}")
+            
+            # Check which keys are available
+            rospy.loginfo(f"Available keys in 3D map: {list(self.keyboard_points_3d.keys())}")
+            
+            # Use small height offset since tip is already close to keyboard
+            press_height = 0.01  # 1cm above key for safety
+            
             for click in keyboard_clicks:
                 if click not in self.keyboard_points_3d:
-                    rospy.logwarn(f"3D position for key {click} not found. Skipping.")
+                    rospy.logwarn(f"3D position for key {click} not found. Available keys: {list(self.keyboard_points_3d.keys())}")
                     continue
 
-                rospy.loginfo(f"Typing key: '{click}'")
+                rospy.loginfo(f"\n=== Typing key: '{click}' ===")
+                
+                # Use detected position with small offset
                 key_position = self.keyboard_points_3d[click]
+                press_position = key_position + np.array([0, 0, press_height])
                 
-                # Define a hover position 5cm above the key
-                hover_position = key_position + np.array([0, 0, 0.05])
-                press_position = key_position + np.array([0, 0, 0.01]) # 1cm above key for final press
+                rospy.loginfo(f"Key base position: {key_position}")
+                rospy.loginfo(f"Press position (with {press_height}m offset): {press_position}")
 
-                # Move to Hover -> Press -> Return to Hover -> Return to Home
-                rospy.loginfo("  -> Moving to hover position...")
-                if not self.move_arm_to_position(hover_position):
-                    rospy.logerr(f"Failed to move to hover position for key {click}. Aborting.")
-                    break # Stop the sequence
+                # Create intermediate waypoint if distance is large
+                distance_to_key = np.linalg.norm(press_position - home_position)
+                if distance_to_key > 0.4:  # If more than 40cm away
+                    # Create intermediate position halfway
+                    intermediate_position = home_position + 0.5 * (press_position - home_position)
+                    intermediate_position[2] += 0.05  # Add 5cm height for clearance
+                    
+                    rospy.loginfo(f"Large distance detected ({distance_to_key:.3f}m). Using intermediate waypoint.")
+                    rospy.loginfo(f"Intermediate position: {intermediate_position}")
+                    
+                    # Move to intermediate position first
+                    if not self.move_arm_to_position(intermediate_position, use_cartesian=False, timeout=30.0):
+                        rospy.logerr(f"Failed to move to intermediate position for key {click}. Skipping.")
+                        continue
 
-                rospy.loginfo("  -> Moving to press position...")
-                if not self.move_arm_to_position(press_position):
-                    rospy.logerr(f"Failed to move to press position for key {click}. Aborting.")
-                    break
+                # Move directly to press position
+                rospy.loginfo("=== Attempting to move to press position ===")
                 
-                # (Actual press would involve a small downward linear motion here)
-                rospy.sleep(0.2) # Simulate press duration
+                # Try standard planning with longer timeout for far targets
+                if not self.move_arm_to_position(press_position, use_cartesian=False, timeout=35.0):
+                    rospy.logwarn(f"Standard planning failed for key {click}, trying Cartesian...")
+                    if not self.move_arm_to_position(press_position, use_cartesian=True, timeout=20.0):
+                        rospy.logerr(f"Both methods failed for key {click}. Skipping.")
+                        continue
                 
-                rospy.loginfo("  -> Returning to hover position...")
-                if not self.move_arm_to_position(hover_position):
-                     rospy.logerr(f"Failed to return to hover position for key {click}. Aborting.")
-                     break
+                rospy.loginfo(f"Successfully reached key {click}")
+                rospy.sleep(0.2)  # Brief press simulation
 
-            # Finally, return to the initial safe position
-            rospy.loginfo("Typing sequence finished. Returning to initial safe position.")
-            self.move_arm_to_position(home_position)
+            # Return home
+            rospy.loginfo("\n=== Returning to home position ===")
+            self.move_arm_to_position(home_position, use_cartesian=False, timeout=35.0)
 
         except Exception as e:
             rospy.logerr(f"An error occurred during the typing sequence: {e}")
             import traceback
             traceback.print_exc()
-
-
+        
+        finally:
+            rospy.loginfo("Typing sequence completed.")
 def main():
     controller = Controller(debug=False)
     # rospy.sleep(15)
