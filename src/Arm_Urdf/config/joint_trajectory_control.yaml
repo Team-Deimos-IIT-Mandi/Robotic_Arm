@@ -1,9 +1,15 @@
-end_effector_controller:
+pointer_controller:
     type: position_controllers/JointTrajectoryController
     default: True
     joints:
-      - Finger_1
-      - Finger_2
+      - pointer_extend_joint
+
+# end_effector_controller:
+#     type: position_controllers/JointTrajectoryController
+#     default: True
+#     joints:
+#       - Finger_1
+#       - Finger_2
 
 body_controller:
     type: position_controllers/JointTrajectoryController
