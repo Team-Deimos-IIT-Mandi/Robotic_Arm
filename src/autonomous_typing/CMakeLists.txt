@@ -56,16 +56,16 @@ include_directories(
 
 ## Mark Python scripts for installation
 catkin_install_python(PROGRAMS
-  # src/keyboard_typing.py
-  # src/keyboard_typing3.py
-  # src/yolo_seg.py
-  src/yolo_key_det.py
-  # src/controller.py
-  # src/multicontroller.py
+  src/redundant_code/keyboard_typing.py
+  src/redundant_code/keyboard_typing3.py
+  src/redundant_code/yolo_seg.py
+  src/redundant_code/yolo_key_det.py
+  src/redundant_code/controller.py
+  src/redundant_code/multicontroller.py
   src/autonomous.py
-  src/final.py
-  src/kinova_autonom.py
-  # src/yolo_det.py
+  src/redundant_code/final.py
+  src/redundant_code/kinova_autonom.py
+  src/redundant_code/yolo_det.py
 
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
