@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Parameters -->
+    <arg name="model_path" default="$(find keyboard_detector)/models/best.pt"/>
+    <arg name="confidence_threshold" default="0.5"/>
+    <arg name="iou_threshold" default="0.45"/>
+    <arg name="image_topic" default="/camera/image_raw"/>
+    
+    <!-- Keyboard Detection Node -->
+    <node name="keyboard_detector" pkg="keyboard_detector" type="keyboard_detector_node.py" output="screen">
+        <param name="model_path" value="$(arg model_path)"/>
+        <param name="confidence_threshold" value="$(arg confidence_threshold)"/>
+        <param name="iou_threshold" value="$(arg iou_threshold)"/>
+        <param name="image_topic" value="$(arg image_topic)"/>
+    </node>
+</launch>

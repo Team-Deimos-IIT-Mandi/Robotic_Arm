@@ -85,7 +85,9 @@ install(DIRECTORY config/
 ## Install URDF files
 install(DIRECTORY urdf/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/urdf
+  FILES_MATCHING PATTERN "*.sdf" PATTERN "Razer_BlackWidow" PATTERN "*.obj" PATTERN "*.dae"
 )
+
 
 #################
 ## Testing (Optional) ##

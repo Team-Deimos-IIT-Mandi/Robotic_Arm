@@ -16,6 +16,7 @@ src/kortex_move_it_config
 src/ros_kortex_vision
 
 src/third_party
+src/Keyboard_key_detection-Task_5_1
 
 yolov8n-obb.pt
 yolov8n-seg.pt
