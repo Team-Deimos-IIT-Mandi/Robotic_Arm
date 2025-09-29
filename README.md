@@ -25,23 +25,21 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
 - NVIDIA GPU drivers (optional, for GPU acceleration)
 
 ### Option 1: Using Pre-built Image (Fastest)
+1.**VcXsrv (for GUI)**
+  Download VcXsrv from:
+  https://sourceforge.net/projects/vcxsrv/
 
-1. **Pull the latest image:**
+  After installation, launch XLaunch with:
+  Display number: 0
+  Start no client
+2. **Pull the latest image:**
    ```bash
-   docker pull ak9685/robotic-arm-project:main
+   docker pull teamdeimosiitmd/robotic-arm:latest   
    ```
 
-2. **Run directly:**
+3. **Run directly:**
    ```bash
-   docker run -it \
-     --gpus all \
-     --name robotic_arm_container \
-     --env="DISPLAY=$DISPLAY" \
-     --env="QT_X11_NO_MITSHM=1" \
-     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-     --net=host \
-     --privileged \
-     ak9685/robotic-arm-project:main
+   docker run -it --gpus all --name robotic_arm_container --net=host --privileged --env="DISPLAY=host.docker.internal:0.0" --env="QT_X11_NO_MITSHM=1" --env="LIBGL_ALWAYS_INDIRECT=0" -v /tmp/.X11-unix:/tmp/.X11-unix:rw teamdeimosiitmd/robotic-arm:latest
    ```
 
 ### Option 2: Using the Launch Script (Recommended for Development)
@@ -62,41 +60,7 @@ A complete robotic arm simulation environment using ROS Noetic, MoveIt, and Gaze
    ./launch_container.sh
    ```
 
-### Option 3: Using Docker Compose
 
-1. **Setup X11 forwarding:**
-   ```bash
-   export XAUTH=/tmp/.docker.xauth
-   touch $XAUTH
-   xauth nxlist $DISPLAY | sed -e 's/^..../ffff/' | xauth -f $XAUTH nxmerge -
-   xhost +local:docker
-   ```
-
-2. **Launch with Docker Compose:**
-   ```bash
-   docker-compose up -d
-   docker-compose exec robotic_arm /bin/bash
-   ```
-
-### Option 4: Build from Source
-
-1. **Build the image:**
-   ```bash
-   docker build -t robotic_arm:latest .
-   ```
-
-2. **Run the container:**
-   ```bash
-   docker run -it \
-     --gpus all \
-     --name robotic_arm_container \
-     --env="DISPLAY=$DISPLAY" \
-     --env="QT_X11_NO_MITSHM=1" \
-     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-     --net=host \
-     --privileged \
-     robotic_arm:latest
-   ```
 
 ## 🎮 Usage
 
